@@ -1376,6 +1376,235 @@
       );
     }
     
+    function AssetDialog({ isOpen, item, onSave, onCancel }) {
+      const [formData, setFormData] = useState(item || {});
+      
+      useEffect(() => {
+        setFormData(item || {});
+      }, [item]);
+      
+      if (!isOpen) return null;
+      
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        onSave(formData);
+      };
+      
+      const updateField = (field, value) => {
+        setFormData({ ...formData, [field]: value });
+      };
+      
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <form onSubmit={handleSubmit}>
+              <div className="p-6 border-b">
+                <h2 className="text-xl font-bold text-dark">💎 Bezit toevoegen/bewerken</h2>
+              </div>
+              
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Naam</label>
+                  <input
+                    type="text"
+                    value={formData.name || ''}
+                    onChange={(e) => updateField('name', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    required
+                    placeholder="Bijv. Woning, Aandelen, Crypto"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                  <select
+                    value={formData.type || 'property'}
+                    onChange={(e) => updateField('type', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  >
+                    <option value="property">🏠 Vastgoed</option>
+                    <option value="stocks">📈 Aandelen</option>
+                    <option value="crypto">₿ Crypto</option>
+                    <option value="cash">💵 Cash / Spaarrekening</option>
+                    <option value="other">💼 Overig</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Huidige waarde (€)</label>
+                  <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent">
+                    <span className="px-3 py-2 text-gray-500 bg-gray-50 border-r">€</span>
+                    <input
+                      type="number"
+                      value={formData.value || 0}
+                      onChange={(e) => updateField('value', parseFloat(e.target.value) || 0)}
+                      className="flex-1 px-3 py-2 border-0 focus:ring-0"
+                      required
+                      min="0"
+                      step="1000"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Groei per jaar (%)</label>
+                  <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent">
+                    <input
+                      type="number"
+                      value={formData.growthRate || 0}
+                      onChange={(e) => updateField('growthRate', parseFloat(e.target.value) || 0)}
+                      className="flex-1 px-3 py-2 border-0 focus:ring-0"
+                      min="-100"
+                      max="100"
+                      step="0.1"
+                    />
+                    <span className="px-3 py-2 text-gray-500 bg-gray-100 border-l">%</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Bijv. 7% voor aandelen, 2% voor vastgoed</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Startjaar</label>
+                  <input
+                    type="number"
+                    value={formData.startYear || new Date().getFullYear()}
+                    onChange={(e) => updateField('startYear', parseInt(e.target.value) || new Date().getFullYear())}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    required
+                    min="2000"
+                    max="2100"
+                  />
+                </div>
+              </div>
+              
+              <div className="p-6 border-t flex gap-3 justify-end">
+                <button type="button" onClick={onCancel} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                  Annuleren
+                </button>
+                <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors">
+                  Opslaan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+    
+    function LiabilityDialog({ isOpen, item, onSave, onCancel }) {
+      const [formData, setFormData] = useState(item || {});
+      
+      useEffect(() => {
+        setFormData(item || {});
+      }, [item]);
+      
+      if (!isOpen) return null;
+      
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        onSave(formData);
+      };
+      
+      const updateField = (field, value) => {
+        setFormData({ ...formData, [field]: value });
+      };
+      
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <form onSubmit={handleSubmit}>
+              <div className="p-6 border-b">
+                <h2 className="text-xl font-bold text-dark">💳 Schuld toevoegen/bewerken</h2>
+              </div>
+              
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Naam</label>
+                  <input
+                    type="text"
+                    value={formData.name || ''}
+                    onChange={(e) => updateField('name', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    required
+                    placeholder="Bijv. Studieschuld, Lening"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                  <select
+                    value={formData.type || 'other'}
+                    onChange={(e) => updateField('type', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  >
+                    <option value="student-loan">🎓 Studieschuld</option>
+                    <option value="personal-loan">💰 Persoonlijke lening</option>
+                    <option value="credit-card">💳 Creditcard</option>
+                    <option value="other">📋 Overig</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">Hypotheek wordt automatisch toegevoegd bij uitgaven</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Bedrag (€)</label>
+                  <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent">
+                    <span className="px-3 py-2 text-gray-500 bg-gray-50 border-r">€</span>
+                    <input
+                      type="number"
+                      value={formData.amount || 0}
+                      onChange={(e) => updateField('amount', parseFloat(e.target.value) || 0)}
+                      className="flex-1 px-3 py-2 border-0 focus:ring-0"
+                      required
+                      min="0"
+                      step="100"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Rentepercentage (%)</label>
+                  <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent">
+                    <input
+                      type="number"
+                      value={formData.interestRate || 0}
+                      onChange={(e) => updateField('interestRate', parseFloat(e.target.value) || 0)}
+                      className="flex-1 px-3 py-2 border-0 focus:ring-0"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                    />
+                    <span className="px-3 py-2 text-gray-500 bg-gray-100 border-l">%</span>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Startjaar</label>
+                  <input
+                    type="number"
+                    value={formData.startYear || new Date().getFullYear()}
+                    onChange={(e) => updateField('startYear', parseInt(e.target.value) || new Date().getFullYear())}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    required
+                    min="2000"
+                    max="2100"
+                  />
+                </div>
+              </div>
+              
+              <div className="p-6 border-t flex gap-3 justify-end">
+                <button type="button" onClick={onCancel} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                  Annuleren
+                </button>
+                <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors">
+                  Opslaan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+    
     function KPICard({ icon, label, value, color = 'primary' }) {
       const colorClasses = {
         primary: 'border-primary bg-primary/5',
@@ -1407,6 +1636,17 @@
       const [targetNetWorth, setTargetNetWorth] = useState(1500000);
       const [wozWaarde, setWozWaarde] = useState(0);
       
+      // Assets: Bezittingen (woning, crypto, aandelen, cash)
+      const [assets, setAssets] = useState([
+        // Example: { id: 1, name: 'Woning', value: 450000, type: 'property', growthRate: 2, startYear: 2020 }
+      ]);
+      
+      // Liabilities: Schulden (hypotheek, studieschuld, etc.)
+      const [liabilities, setLiabilities] = useState([
+        // Hypotheek wordt automatisch toegevoegd vanuit expenses met category 'housing'
+        // Example: { id: 1, name: 'Studieschuld', amount: 20000, interestRate: 0, type: 'student-loan', startYear: 2018 }
+      ]);
+      
       const [assumptions, setAssumptions] = useState({
         inflationRate: 2.0,
         investmentReturn: 7.0,
@@ -1417,6 +1657,8 @@
       const [showCategoryDialog, setShowCategoryDialog] = useState(false);
       const [showIncomeCategoryDialog, setShowIncomeCategoryDialog] = useState(false);
       const [housingDialog, setHousingDialog] = useState({ isOpen: false, item: null });
+      const [assetDialog, setAssetDialog] = useState({ isOpen: false, item: null });
+      const [liabilityDialog, setLiabilityDialog] = useState({ isOpen: false, item: null });
       
       const [projections, setProjections] = useState(null);
       
@@ -1566,6 +1808,76 @@
         }
       };
       
+      // Asset handlers
+      const addAsset = () => {
+        const newAsset = {
+          id: Date.now(),
+          name: '',
+          value: 0,
+          type: 'property',
+          growthRate: 0,
+          startYear: new Date().getFullYear()
+        };
+        setAssetDialog({ isOpen: true, item: newAsset });
+      };
+      
+      const editAsset = (asset) => {
+        setAssetDialog({ isOpen: true, item: { ...asset } });
+      };
+      
+      const saveAsset = (asset) => {
+        const existingIndex = assets.findIndex(a => a.id === asset.id);
+        if (existingIndex >= 0) {
+          const updated = [...assets];
+          updated[existingIndex] = asset;
+          setAssets(updated);
+        } else {
+          setAssets([...assets, asset]);
+        }
+        setAssetDialog({ isOpen: false, item: null });
+      };
+      
+      const deleteAsset = (id) => {
+        if (confirm('Weet je zeker dat je dit bezit wilt verwijderen?')) {
+          setAssets(assets.filter(a => a.id !== id));
+        }
+      };
+      
+      // Liability handlers
+      const addLiability = () => {
+        const newLiability = {
+          id: Date.now(),
+          name: '',
+          amount: 0,
+          interestRate: 0,
+          type: 'other',
+          startYear: new Date().getFullYear()
+        };
+        setLiabilityDialog({ isOpen: true, item: newLiability });
+      };
+      
+      const editLiability = (liability) => {
+        setLiabilityDialog({ isOpen: true, item: { ...liability } });
+      };
+      
+      const saveLiability = (liability) => {
+        const existingIndex = liabilities.findIndex(l => l.id === liability.id);
+        if (existingIndex >= 0) {
+          const updated = [...liabilities];
+          updated[existingIndex] = liability;
+          setLiabilities(updated);
+        } else {
+          setLiabilities([...liabilities, liability]);
+        }
+        setLiabilityDialog({ isOpen: false, item: null });
+      };
+      
+      const deleteLiability = (id) => {
+        if (confirm('Weet je zeker dat je deze schuld wilt verwijderen?')) {
+          setLiabilities(liabilities.filter(l => l.id !== id));
+        }
+      };
+      
       return (
         <div className="min-h-screen bg-light">
           <header className="bg-white shadow-sm border-b">
@@ -1615,6 +1927,110 @@
                     expenses={expenseItems}
                     wozWaarde={wozWaarde}
                   />
+                </div>
+                
+                <div className="bg-white rounded-lg shadow p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="font-semibold flex items-center gap-2">
+                      💎 Bezittingen
+                      <span className="text-xs text-gray-500">({assets.length})</span>
+                    </h2>
+                    <button onClick={addAsset} className="text-primary hover:text-primary-dark text-xl" title="Voeg bezit toe">+</button>
+                  </div>
+                  {assets.length === 0 ? (
+                    <div className="text-sm text-gray-400 italic py-2">
+                      Nog geen bezittingen toegevoegd
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {assets.map(asset => (
+                        <div 
+                          key={asset.id}
+                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                          <div className="flex-1 cursor-pointer" onClick={() => editAsset(asset)}>
+                            <div className="font-medium text-sm flex items-center gap-1">
+                              {asset.type === 'property' && '🏠'}
+                              {asset.type === 'stocks' && '📈'}
+                              {asset.type === 'crypto' && '₿'}
+                              {asset.type === 'cash' && '💵'}
+                              {asset.type === 'other' && '💼'}
+                              {asset.name}
+                            </div>
+                            <div className="text-xs text-gray-600">
+                              {formatCurrency(asset.value)}
+                              {asset.growthRate > 0 && ` • ${asset.growthRate}% groei/jaar`}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              Vanaf {asset.startYear}
+                            </div>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteAsset(asset.id);
+                            }}
+                            className="ml-2 text-red-500 hover:text-red-700 text-sm"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                <div className="bg-white rounded-lg shadow p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="font-semibold flex items-center gap-2">
+                      💳 Schulden
+                      <span className="text-xs text-gray-500">({liabilities.length})</span>
+                    </h2>
+                    <button onClick={addLiability} className="text-primary hover:text-primary-dark text-xl" title="Voeg schuld toe">+</button>
+                  </div>
+                  <div className="text-xs text-gray-500 mb-2 italic">
+                    Hypotheek wordt automatisch berekend via uitgaven
+                  </div>
+                  {liabilities.length === 0 ? (
+                    <div className="text-sm text-gray-400 italic py-2">
+                      Nog geen schulden toegevoegd
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {liabilities.map(liability => (
+                        <div 
+                          key={liability.id}
+                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                          <div className="flex-1 cursor-pointer" onClick={() => editLiability(liability)}>
+                            <div className="font-medium text-sm flex items-center gap-1">
+                              {liability.type === 'student-loan' && '🎓'}
+                              {liability.type === 'personal-loan' && '💰'}
+                              {liability.type === 'credit-card' && '💳'}
+                              {liability.type === 'other' && '📋'}
+                              {liability.name}
+                            </div>
+                            <div className="text-xs text-gray-600">
+                              {formatCurrency(liability.amount)}
+                              {liability.interestRate > 0 && ` • ${liability.interestRate}% rente`}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              Vanaf {liability.startYear}
+                            </div>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteLiability(liability.id);
+                            }}
+                            className="ml-2 text-red-500 hover:text-red-700 text-sm"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 
                 <div className="bg-white rounded-lg shadow p-4">
@@ -1796,6 +2212,20 @@
             item={housingDialog.item}
             onSave={saveHousing}
             onCancel={() => setHousingDialog({ isOpen: false, item: null })}
+          />
+          
+          <AssetDialog
+            isOpen={assetDialog.isOpen}
+            item={assetDialog.item}
+            onSave={saveAsset}
+            onCancel={() => setAssetDialog({ isOpen: false, item: null })}
+          />
+          
+          <LiabilityDialog
+            isOpen={liabilityDialog.isOpen}
+            item={liabilityDialog.item}
+            onSave={saveLiability}
+            onCancel={() => setLiabilityDialog({ isOpen: false, item: null })}
           />
         
         </div>
