@@ -1,0 +1,173 @@
+<!-- Unified single-file React + Financial Engine
+     GitHub Pages compatible (no imports, no build step)
+     Engine logic separated by section comments
+-->
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <title>Financiële planningstool</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+  <div id="root"></div>
+
+  <script type="text/babel">
+
+// =====================================================
+// FINANCIAL ENGINE (NO UI LOGIC BELOW THIS LINE)
+// =====================================================
+
+function calculateMortgageMonthlyPayment({ principal, annualRate, months, type }) {
+  if (principal <= 0 || annualRate <= 0) return 0;
+  const r = annualRate / 100 / 12;
+  if (type === 'interest-only') return principal * r;
+  return principal * (r * Math.pow(1 + r, months)) / (Math.pow(1 + r, months) - 1);
+}
+
+function normalizeAmount(amount, frequency) {
+  if (frequency === 'monthly') return amount * 12;
+  return amount;
+}
+
+function calculateAnnualCashflow(year, incomes, expenses, assumptions, children) {
+  let income = 0;
+  let expense = 0;
+
+  incomes.forEach(i => {
+    if (year < i.startYear || (i.endYear && year > i.endYear)) return;
+    let value = normalizeAmount(i.amount, i.frequency);
+    if (i.growthRate) value *= Math.pow(1 + i.growthRate / 100, year - i.startYear);
+    income += value;
+  });
+
+  expenses.forEach(e => {
+    if (year < e.startYear || (e.endYear && year > e.endYear)) return;
+    let value = normalizeAmount(e.amount, e.frequency);
+    if (e.adjustForInflation) value *= Math.pow(1 + assumptions.inflationRate / 100, year - e.startYear);
+    expense += value;
+  });
+
+  return {
+    income,
+    expenses: expense,
+    savings: income - expense
+  };
+}
+
+function projectNetWorth({ startYear, endYear, startNetWorth, incomes, expenses, assumptions, children }) {
+  const timeline = [];
+  let netWorth = startNetWorth;
+
+  for (let year = startYear; year <= endYear; year++) {
+    const cashflow = calculateAnnualCashflow(year, incomes, expenses, assumptions, children);
+    netWorth = netWorth * (1 + assumptions.investmentReturn / 100) + cashflow.savings;
+    timeline.push({ year, netWorth, cashflow });
+  }
+
+  return timeline;
+}
+
+function findFireYear(timeline, target) {
+  const hit = timeline.find(y => y.netWorth >= target);
+  return hit ? hit.year : null;
+}
+
+function monthlySavingsFromCashflow(cashflow) {
+  return cashflow.savings / 12;
+}
+
+function formatCurrency(v) {
+  return '€' + Math.round(v).toLocaleString('nl-NL');
+}
+
+// =====================================================
+// UI COMPONENTS (ENGINE IS ONLY CALLED, NEVER MODIFIED)
+// =====================================================
+
+const { useState, useEffect } = React;
+
+function KPICard({ icon, label, value }) {
+  return (
+    <div className="bg-white rounded-lg shadow p-4">
+      <div className="text-2xl">{icon}</div>
+      <div className="text-sm text-gray-500">{label}</div>
+      <div className="text-xl font-bold">{value}</div>
+    </div>
+  );
+}
+
+function App() {
+  const year = new Date().getFullYear();
+
+  const [incomeItems, setIncomeItems] = useState([
+    { id: 1, name: 'Salaris', amount: 80000, frequency: 'yearly', growthRate: 2, startYear: year }
+  ]);
+
+  const [expenseItems, setExpenseItems] = useState([
+    { id: 1, name: 'Levensonderhoud', amount: 2500, frequency: 'monthly', startYear: year, adjustForInflation: true }
+  ]);
+
+  const [children, setChildren] = useState([]);
+
+  const [currentNetWorth, setCurrentNetWorth] = useState(20000);
+  const [targetNetWorth, setTargetNetWorth] = useState(1500000);
+
+  const [assumptions] = useState({
+    inflationRate: 2,
+    investmentReturn: 7
+  });
+
+  const [projections, setProjections] = useState(null);
+
+  useEffect(() => {
+    const timeline = projectNetWorth({
+      startYear: year,
+      endYear: year + 50,
+      startNetWorth: currentNetWorth,
+      incomes: incomeItems,
+      expenses: expenseItems,
+      assumptions,
+      children
+    });
+
+    const fireYear = findFireYear(timeline, targetNetWorth);
+    const monthlySavings = monthlySavingsFromCashflow(timeline[0].cashflow);
+
+    setProjections({ timeline, fireYear, monthlySavings });
+  }, [incomeItems, expenseItems, children, currentNetWorth, targetNetWorth]);
+
+  return (
+    <div className="max-w-6xl mx-auto p-6 space-y-6">
+      <h1 className="text-2xl font-bold">Financiële planningstool</h1>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <KPICard icon="🎯" label="FIRE-jaar" value={projections?.fireYear ?? '—'} />
+        <KPICard icon="📊" label="Huidig vermogen" value={formatCurrency(currentNetWorth)} />
+        <KPICard icon="🪙" label="Doel" value={formatCurrency(targetNetWorth)} />
+        <KPICard icon="↕️" label="Maandelijks saldo" value={projections ? formatCurrency(projections.monthlySavings) : '—'} />
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-4">
+        <h2 className="font-semibold mb-2">Eerste 10 jaar</h2>
+        {projections?.timeline.slice(0, 10).map(y => (
+          <div key={y.year} className="flex justify-between text-sm">
+            <span>{y.year}</span>
+            <span>{formatCurrency(y.netWorth)}</span>
+          </div>
+        ))}
+      </div>
+
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+
+  </script>
+</body>
+</html>
