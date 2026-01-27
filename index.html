@@ -59,22 +59,25 @@ const TAX_CREDITS_2026 = {
   arbeidPhaseoutRate: 6.51
 };
 
-// Toeslagen Constants
+// Toeslagen Constants (with inflation adjustment capability)
 const TOESLAGEN_2026 = {
   KINDGEBONDEN_BUDGET: {
     PER_KIND: 2580,
     DREMPEL_ENKEL: 29736,
     DREMPEL_PARTNER: 39141,
-    AFBOUW_PERC: 0.076
+    AFBOUW_PERC: 0.076,
+    INFLATION_LAG: 1 // Toeslagen stijgen met 1 jaar vertraging
   },
   KINDERBIJSLAG: {
     LEEFTIJD_0_5: { kwartaal: 295.07 },
     LEEFTIJD_6_11: { kwartaal: 358.30 },
-    LEEFTIJD_12_17: { kwartaal: 421.53 }
+    LEEFTIJD_12_17: { kwartaal: 421.53 },
+    INFLATION_LAG: 1
   },
   KINDEROPVANG: {
     MAX_UREN_MAAND: 230,
-    TYPES: { dagopvang: 11.23, bso: 9.98, gastouder: 8.49 }
+    TYPES: { dagopvang: 11.23, bso: 9.98, gastouder: 8.49 },
+    INFLATION_LAG: 1
   }
 };
 
@@ -153,7 +156,10 @@ const KINDEROPVANG_SCHIJVEN = [
 // Helper Functions
 const yearlyAmount = (amount, frequency) => frequency === 'monthly' ? amount * 12 : amount;
 const isActiveInYear = (item, year) => year >= item.startYear && (!item.endYear || year <= item.endYear);
-const grow = (value, rate, years) => value * Math.pow(1 + rate / 100, years);
+const grow = (value, rate, years) => {
+  const safeYears = Math.max(0, years); // Prevent negative years
+  return value * Math.pow(1 + rate / 100, safeYears);
+};
 
 // Tax Calculation
 const calculateDutchTax2026 = (grossIncome) => {
@@ -192,17 +198,17 @@ const calculateDutchTax2026 = (grossIncome) => {
   return { grossIncome, incomeTax: tax, credits: totalCredits, netTax, netIncome };
 };
 
-// Toeslagen Calculations
-const berekenKindgebondenBudget = (toetsInkomen, aantalKinderen, fiscaalPartner) => {
+// Toeslagen Calculations (with inflation adjustment)
+const berekenKindgebondenBudget = (toetsInkomen, aantalKinderen, fiscaalPartner, inflationFactor = 1) => {
   if (aantalKinderen === 0) return 0;
   const { KINDGEBONDEN_BUDGET } = TOESLAGEN_2026;
-  const maxBedrag = KINDGEBONDEN_BUDGET.PER_KIND * aantalKinderen;
+  const maxBedrag = KINDGEBONDEN_BUDGET.PER_KIND * aantalKinderen * inflationFactor;
   const drempel = fiscaalPartner ? KINDGEBONDEN_BUDGET.DREMPEL_PARTNER : KINDGEBONDEN_BUDGET.DREMPEL_ENKEL;
   if (toetsInkomen <= drempel) return maxBedrag;
   return Math.max(0, maxBedrag - (toetsInkomen - drempel) * KINDGEBONDEN_BUDGET.AFBOUW_PERC);
 };
 
-const berekenKinderopvangtoeslag = (toetsInkomen, opvangDetails) => {
+const berekenKinderopvangtoeslag = (toetsInkomen, opvangDetails, inflationFactor = 1) => {
   if (!opvangDetails || opvangDetails.length === 0) return 0;
   const schijf = KINDEROPVANG_SCHIJVEN.find(s => toetsInkomen >= s.van && toetsInkomen <= s.tot) || KINDEROPVANG_SCHIJVEN[KINDEROPVANG_SCHIJVEN.length - 1];
   const { percEerste, percVolgend } = schijf;
@@ -215,12 +221,12 @@ const berekenKinderopvangtoeslag = (toetsInkomen, opvangDetails) => {
     const urenJaar = urenMaand * 12;
     const maxPrijs = TYPES[opv.type] || 0;
     const perc = (index === 0) ? percEerste : percVolgend;
-    totaal += urenJaar * maxPrijs * perc;
+    totaal += urenJaar * maxPrijs * perc * inflationFactor;
   });
   return Math.round(totaal);
 };
 
-const berekenKinderbijslag = (leeftijden) => {
+const berekenKinderbijslag = (leeftijden, inflationFactor = 1) => {
   if (!leeftijden || leeftijden.length === 0) return 0;
   const { KINDERBIJSLAG } = TOESLAGEN_2026;
   let totaalJaar = 0;
@@ -229,17 +235,52 @@ const berekenKinderbijslag = (leeftijden) => {
     if (leeftijd >= 0 && leeftijd <= 5) config = KINDERBIJSLAG.LEEFTIJD_0_5;
     else if (leeftijd >= 6 && leeftijd <= 11) config = KINDERBIJSLAG.LEEFTIJD_6_11;
     else if (leeftijd >= 12 && leeftijd <= 17) config = KINDERBIJSLAG.LEEFTIJD_12_17;
-    if (config) totaalJaar += config.kwartaal * 4;
+    if (config) totaalJaar += config.kwartaal * 4 * inflationFactor;
   });
   return totaalJaar;
 };
 
-// Mortgage Calculation
+// Mortgage Calculation with Amortization
+const calculateMortgageYear = ({ outstandingAmount, interestRate, remainingMonths }, yearsSinceStart) => {
+  const monthlyRate = (interestRate / 100) / 12;
+  
+  if (!monthlyRate) {
+    // Interest-free: simple amortization
+    const monthlyPayment = outstandingAmount / remainingMonths;
+    return {
+      payment: monthlyPayment * 12,
+      interest: 0,
+      principal: monthlyPayment * 12,
+      remainingBalance: Math.max(0, outstandingAmount - (monthlyPayment * 12 * yearsSinceStart))
+    };
+  }
+  
+  // Annuity calculation
+  const monthlyPayment = outstandingAmount * (monthlyRate / (1 - Math.pow(1 + monthlyRate, -remainingMonths)));
+  
+  // Calculate balance after yearsSinceStart years
+  let balance = outstandingAmount;
+  let totalInterest = 0;
+  
+  for (let month = 0; month < Math.min(yearsSinceStart * 12, remainingMonths); month++) {
+    const interest = balance * monthlyRate;
+    const principal = monthlyPayment - interest;
+    balance -= principal;
+    if (month >= (yearsSinceStart - 1) * 12 && month < yearsSinceStart * 12) {
+      totalInterest += interest;
+    }
+  }
+  
+  return {
+    payment: monthlyPayment * 12,
+    interest: totalInterest,
+    principal: monthlyPayment * 12 - totalInterest,
+    remainingBalance: Math.max(0, balance)
+  };
+};
+
 const mortgagePaymentAnnual = ({ outstandingAmount, interestRate, remainingMonths }) => {
-  const r = interestRate / 100 / 12;
-  if (!r) return (outstandingAmount / (remainingMonths / 12));
-  const annuity = outstandingAmount * (r / (1 - Math.pow(1 + r, -remainingMonths)));
-  return annuity * 12;
+  return calculateMortgageYear({ outstandingAmount, interestRate, remainingMonths }, 1).payment;
 };
 
 // Main Cashflow Engine
@@ -247,13 +288,19 @@ const calculateAnnualCashflow = (year, items, assumptions) => {
   let grossIncome = 0;
   let totalExpenses = 0;
   let toeslagen = 0;
+  let hypotheekrenteAftrek = 0; // Track deductible mortgage interest
 
   items.forEach(item => {
     if (!isActiveInYear(item, year)) return;
 
     // Housing (mortgage)
     if (item.type === 'expense' && item.category === 'housing' && item.metadata?.mortgage) {
-      totalExpenses += mortgagePaymentAnnual(item.metadata.mortgage);
+      const mortgage = item.metadata.mortgage;
+      const yearsActive = Math.max(0, year - item.startYear);
+      const mortgageYear = calculateMortgageYear(mortgage, yearsActive + 1);
+      
+      totalExpenses += mortgageYear.payment;
+      hypotheekrenteAftrek += mortgageYear.interest; // Only interest is deductible
       return;
     }
 
@@ -263,10 +310,9 @@ const calculateAnnualCashflow = (year, items, assumptions) => {
       return;
     }
 
-    // Kinderbijslag
+    // Kinderbijslag - will be calculated with inflation in second loop
     if (item.category === 'child-benefit' && item.metadata?.kinderenLeeftijden) {
-      toeslagen += berekenKinderbijslag(item.metadata.kinderenLeeftijden);
-      return;
+      return; // Calculate after with inflation
     }
 
     // Kindgebonden budget
@@ -278,48 +324,65 @@ const calculateAnnualCashflow = (year, items, assumptions) => {
     const base = yearlyAmount(item.amount, item.frequency);
 
     if (item.type === 'income') {
-      const grown = grow(base, item.growthRate || 0, year - item.startYear);
+      const yearsActive = Math.max(0, year - item.startYear);
+      const grown = grow(base, item.growthRate || 0, yearsActive);
       grossIncome += grown;
     }
 
     if (item.type === 'expense') {
+      const yearsActive = Math.max(0, year - item.startYear);
       const adjusted = item.adjustForInflation
-        ? grow(base, assumptions.inflationRate || 0, year - item.startYear)
+        ? grow(base, assumptions.inflationRate || 0, yearsActive)
         : base;
       totalExpenses += adjusted;
     }
   });
 
-  const taxResult = calculateDutchTax2026(grossIncome);
-  const netIncome = taxResult.netIncome;
+  // Apply mortgage interest deduction to taxable income (Box 1 deduction)
+  const taxableIncome = Math.max(0, grossIncome - hypotheekrenteAftrek);
+  const taxResult = calculateDutchTax2026(taxableIncome);
+  const netIncome = grossIncome - taxResult.netTax; // Net = gross - tax (on reduced taxable income)
 
-  // Now calculate income-dependent toeslagen
+  // Now calculate income-dependent toeslagen (based on net income)
   items.forEach(item => {
     if (!isActiveInYear(item, year)) return;
     
+    // Calculate inflation factor for toeslagen (delayed by 1 year)
+    const yearsActive = Math.max(0, year - item.startYear);
+    const inflationYears = Math.max(0, yearsActive - 1); // 1 year lag
+    const inflationFactor = Math.pow(1 + (assumptions.inflationRate || 0) / 100, inflationYears);
+    
     if (item.category === 'childcare' && item.metadata?.kinderen) {
-      toeslagen += berekenKinderopvangtoeslag(netIncome, item.metadata.kinderen);
+      toeslagen += berekenKinderopvangtoeslag(netIncome, item.metadata.kinderen, inflationFactor);
     }
     
     if (item.category === 'child-budget' && item.metadata) {
       toeslagen += berekenKindgebondenBudget(
         netIncome,
         item.metadata.aantalKinderen || 0,
-        item.metadata.fiscaalPartner || false
+        item.metadata.fiscaalPartner || false,
+        inflationFactor
       );
+    }
+    
+    if (item.category === 'child-benefit' && item.metadata?.kinderenLeeftijden) {
+      toeslagen += berekenKinderbijslag(item.metadata.kinderenLeeftijden, inflationFactor);
     }
   });
 
-  const savings = netIncome - totalExpenses;
+  const totalAvailable = netIncome + toeslagen; // Total after-tax income including allowances
+  const netSavings = totalAvailable - totalExpenses; // Actual savings
 
   return {
     year,
     grossIncome,
+    taxableIncome, // Gross minus mortgage interest deduction
     netIncome,
     expenses: totalExpenses,
-    savings,
+    savings: netSavings, // This includes the benefit of toeslagen
     toeslagen,
-    effectiveTaxRate: taxResult.netTax / grossIncome * 100
+    hypotheekrenteAftrek,
+    effectiveTaxRate: taxableIncome > 0 ? (taxResult.netTax / grossIncome * 100) : 0
   };
 };
 
@@ -334,7 +397,7 @@ const buildProjections = ({ startYear, years, startNetWorth, items, assumptions,
     const cashflow = calculateAnnualCashflow(year, items, assumptions);
     
     netWorth *= (1 + investmentRate);
-    netWorth += cashflow.savings + cashflow.toeslagen;
+    netWorth += cashflow.savings; // Toeslagen zitten al in savings (via netIncome)
     
     timeline.push({
       year,
@@ -345,13 +408,41 @@ const buildProjections = ({ startYear, years, startNetWorth, items, assumptions,
 
   const fireEntry = timeline.find(e => e.netWorth >= targetNetWorth);
   const fireYear = fireEntry ? fireEntry.year : null;
-  const monthlySavings = timeline[0] ? (timeline[0].cashflow.savings + timeline[0].cashflow.toeslagen) / 12 : 0;
+  const monthlySavings = timeline[0] ? timeline[0].cashflow.savings / 12 : 0; // savings bevat al toeslagen
 
   return { timeline, fireYear, yearsToFire: fireYear ? fireYear - startYear : null, monthlySavings };
 };
 
 // UI Helpers
 const formatCurrency = (value) => `€${Math.round(value).toLocaleString('nl-NL')}`;
+
+// Calculate display amounts for items
+const getItemDisplayAmount = (item, assumptions = {}) => {
+  if (item.category === 'housing' && item.metadata?.mortgage) {
+    return formatCurrency(mortgagePaymentAnnual(item.metadata.mortgage));
+  }
+  
+  if (item.category === 'child-benefit' && item.metadata?.kinderenLeeftijden) {
+    return formatCurrency(berekenKinderbijslag(item.metadata.kinderenLeeftijden));
+  }
+  
+  if (item.category === 'childcare' && item.metadata?.kinderen) {
+    // Estimate with avg income of 40k net
+    return formatCurrency(berekenKinderopvangtoeslag(40000, item.metadata.kinderen));
+  }
+  
+  if (item.category === 'child-budget' && item.metadata) {
+    // Estimate with avg income of 40k net
+    return formatCurrency(berekenKindgebondenBudget(40000, item.metadata.aantalKinderen || 0, item.metadata.fiscaalPartner || false));
+  }
+  
+  if (item.amount) {
+    const yearly = yearlyAmount(item.amount, item.frequency);
+    return formatCurrency(yearly);
+  }
+  
+  return 'Automatisch';
+};
 
 /* ================================
    REACT COMPONENTS
@@ -362,6 +453,391 @@ function KPICard({ label, value, icon = "📊" }) {
     <div className="bg-white p-4 rounded-lg shadow">
       <div className="text-sm text-gray-600 mb-1">{icon} {label}</div>
       <div className="text-2xl font-bold text-primary">{value}</div>
+    </div>
+  );
+}
+
+function SimpleEditDialog({ item, onSave, onCancel }) {
+  const [formData, setFormData] = useState(item || {});
+  
+  if (!item) return null;
+  
+  const updateField = (field, value) => {
+    const updated = { ...formData, [field]: value };
+    
+    // Auto-initialize metadata when category changes
+    if (field === 'category') {
+      if (value === 'housing' && !updated.metadata?.mortgage) {
+        updated.metadata = {
+          mortgage: { outstandingAmount: 300000, interestRate: 4, remainingMonths: 360 }
+        };
+      } else if (value === 'child-benefit' && !updated.metadata?.kinderenLeeftijden) {
+        updated.metadata = { kinderenLeeftijden: [] };
+      } else if (value === 'childcare' && !updated.metadata?.kinderen) {
+        updated.metadata = { kinderen: [] };
+      } else if (value === 'child-budget' && !updated.metadata?.aantalKinderen) {
+        updated.metadata = { aantalKinderen: 0, fiscaalPartner: false };
+      }
+    }
+    
+    setFormData(updated);
+  };
+  
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave(formData);
+  };
+  
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <form onSubmit={handleSubmit}>
+          <div className="p-6 border-b">
+            <h2 className="text-xl font-semibold">
+              {formData.id ? 'Bewerk' : 'Nieuw'} {formData.type === 'income' ? 'Inkomen' : 'Uitgave'}
+            </h2>
+          </div>
+          
+          <div className="p-6 space-y-4">
+            {/* Name */}
+            <div>
+              <label className="block text-sm font-medium mb-1">Naam</label>
+              <input
+                type="text"
+                value={formData.name || ''}
+                onChange={(e) => updateField('name', e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg"
+                required
+              />
+            </div>
+            
+            {/* Category */}
+            <div>
+              <label className="block text-sm font-medium mb-1">Categorie</label>
+              <select
+                value={formData.category || (formData.type === 'income' ? 'salary' : 'other')}
+                onChange={(e) => updateField('category', e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg"
+              >
+                {formData.type === 'income' ? (
+                  <>
+                    <option value="salary">💼 Salaris</option>
+                    <option value="child-benefit">🍼 Kinderbijslag</option>
+                    <option value="childcare">👶 Kinderopvangtoeslag</option>
+                    <option value="child-budget">👨‍👩‍👧 Kindgebonden budget</option>
+                    <option value="other-income">💰 Overig inkomen</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="housing">🏠 Wonen (hypotheek)</option>
+                    <option value="other">🛒 Overige uitgaven</option>
+                  </>
+                )}
+              </select>
+            </div>
+            
+            {/* Amount (not for special categories) */}
+            {!['housing', 'child-benefit', 'childcare', 'child-budget'].includes(formData.category) && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Bedrag (€)</label>
+                    <input
+                      type="number"
+                      value={formData.amount || 0}
+                      onChange={(e) => updateField('amount', parseFloat(e.target.value) || 0)}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Frequentie</label>
+                    <select
+                      value={formData.frequency || 'yearly'}
+                      onChange={(e) => updateField('frequency', e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    >
+                      <option value="monthly">Per maand</option>
+                      <option value="yearly">Per jaar</option>
+                    </select>
+                  </div>
+                </div>
+                
+                {formData.type === 'income' && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Groei per jaar (%)</label>
+                    <input
+                      type="number"
+                      value={formData.growthRate || 0}
+                      onChange={(e) => updateField('growthRate', parseFloat(e.target.value) || 0)}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                    />
+                  </div>
+                )}
+                
+                {formData.type === 'expense' && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.adjustForInflation || false}
+                      onChange={(e) => updateField('adjustForInflation', e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                    <label className="text-sm">Pas aan voor inflatie</label>
+                  </div>
+                )}
+              </>
+            )}
+            
+            {/* Hypotheek specifiek */}
+            {formData.category === 'housing' && (
+              <div className="bg-blue-50 p-4 rounded-lg space-y-3">
+                <h3 className="font-semibold">Hypotheek details</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs mb-1">Restschuld (€)</label>
+                    <input
+                      type="number"
+                      value={formData.metadata?.mortgage?.outstandingAmount || 0}
+                      onChange={(e) => updateField('metadata', {
+                        ...formData.metadata,
+                        mortgage: { ...formData.metadata?.mortgage, outstandingAmount: parseFloat(e.target.value) || 0 }
+                      })}
+                      className="w-full px-2 py-1 border rounded text-sm"
+                      min="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs mb-1">Rente (%)</label>
+                    <input
+                      type="number"
+                      value={formData.metadata?.mortgage?.interestRate || 0}
+                      onChange={(e) => updateField('metadata', {
+                        ...formData.metadata,
+                        mortgage: { ...formData.metadata?.mortgage, interestRate: parseFloat(e.target.value) || 0 }
+                      })}
+                      className="w-full px-2 py-1 border rounded text-sm"
+                      min="0"
+                      step="0.1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs mb-1">Looptijd (maanden)</label>
+                    <input
+                      type="number"
+                      value={formData.metadata?.mortgage?.remainingMonths || 360}
+                      onChange={(e) => updateField('metadata', {
+                        ...formData.metadata,
+                        mortgage: { ...formData.metadata?.mortgage, remainingMonths: parseInt(e.target.value) || 360 }
+                      })}
+                      className="w-full px-2 py-1 border rounded text-sm"
+                      min="1"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Kinderbijslag specifiek */}
+            {formData.category === 'child-benefit' && (
+              <div className="bg-purple-50 p-4 rounded-lg space-y-3">
+                <h3 className="font-semibold">Kinderbijslag - Leeftijden kinderen</h3>
+                <p className="text-xs text-gray-600">Voeg kinderen toe (0-17 jaar)</p>
+                <div className="space-y-2">
+                  {(formData.metadata?.kinderenLeeftijden || []).map((leeftijd, i) => (
+                    <div key={i} className="flex gap-2 items-center">
+                      <input
+                        type="number"
+                        value={leeftijd}
+                        onChange={(e) => {
+                          const newLeeftijden = [...(formData.metadata?.kinderenLeeftijden || [])];
+                          newLeeftijden[i] = parseInt(e.target.value) || 0;
+                          updateField('metadata', { ...formData.metadata, kinderenLeeftijden: newLeeftijden });
+                        }}
+                        className="flex-1 px-2 py-1 border rounded text-sm"
+                        min="0"
+                        max="17"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newLeeftijden = [...(formData.metadata?.kinderenLeeftijden || [])];
+                          newLeeftijden.splice(i, 1);
+                          updateField('metadata', { ...formData.metadata, kinderenLeeftijden: newLeeftijden });
+                        }}
+                        className="px-2 py-1 bg-red-100 text-red-700 rounded text-sm"
+                      >
+                        Verwijder
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newLeeftijden = [...(formData.metadata?.kinderenLeeftijden || []), 0];
+                    updateField('metadata', { ...formData.metadata, kinderenLeeftijden: newLeeftijden });
+                  }}
+                  className="px-3 py-1 bg-purple-600 text-white rounded text-sm"
+                >
+                  + Kind toevoegen
+                </button>
+              </div>
+            )}
+            
+            {/* Kinderopvangtoeslag specifiek */}
+            {formData.category === 'childcare' && (
+              <div className="bg-teal-50 p-4 rounded-lg space-y-3">
+                <h3 className="font-semibold">Kinderopvangtoeslag - Kinderen details</h3>
+                <p className="text-xs text-gray-600">Voeg kinderen toe met uren per maand en type opvang</p>
+                <div className="space-y-2">
+                  {(formData.metadata?.kinderen || []).map((kind, i) => (
+                    <div key={i} className="bg-white p-2 rounded border space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">Kind {i + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newKinderen = [...(formData.metadata?.kinderen || [])];
+                            newKinderen.splice(i, 1);
+                            updateField('metadata', { ...formData.metadata, kinderen: newKinderen });
+                          }}
+                          className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs"
+                        >
+                          Verwijder
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-xs mb-1">Uren/maand (max 230)</label>
+                          <input
+                            type="number"
+                            value={kind.uren || 0}
+                            onChange={(e) => {
+                              const newKinderen = [...(formData.metadata?.kinderen || [])];
+                              newKinderen[i] = { ...newKinderen[i], uren: parseInt(e.target.value) || 0 };
+                              updateField('metadata', { ...formData.metadata, kinderen: newKinderen });
+                            }}
+                            className="w-full px-2 py-1 border rounded text-sm"
+                            min="0"
+                            max="230"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs mb-1">Type opvang</label>
+                          <select
+                            value={kind.type || 'dagopvang'}
+                            onChange={(e) => {
+                              const newKinderen = [...(formData.metadata?.kinderen || [])];
+                              newKinderen[i] = { ...newKinderen[i], type: e.target.value };
+                              updateField('metadata', { ...formData.metadata, kinderen: newKinderen });
+                            }}
+                            className="w-full px-2 py-1 border rounded text-sm"
+                          >
+                            <option value="dagopvang">Dagopvang</option>
+                            <option value="bso">BSO</option>
+                            <option value="gastouder">Gastouder</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newKinderen = [...(formData.metadata?.kinderen || []), { uren: 0, type: 'dagopvang' }];
+                    updateField('metadata', { ...formData.metadata, kinderen: newKinderen });
+                  }}
+                  className="px-3 py-1 bg-teal-600 text-white rounded text-sm"
+                >
+                  + Kind toevoegen
+                </button>
+              </div>
+            )}
+            
+            {/* Kindgebonden budget specifiek */}
+            {formData.category === 'child-budget' && (
+              <div className="bg-pink-50 p-4 rounded-lg space-y-3">
+                <h3 className="font-semibold">Kindgebonden budget</h3>
+                <div>
+                  <label className="block text-sm mb-1">Aantal kinderen</label>
+                  <input
+                    type="number"
+                    value={formData.metadata?.aantalKinderen || 0}
+                    onChange={(e) => updateField('metadata', {
+                      ...formData.metadata,
+                      aantalKinderen: parseInt(e.target.value) || 0
+                    })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    min="0"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={formData.metadata?.fiscaalPartner || false}
+                    onChange={(e) => updateField('metadata', {
+                      ...formData.metadata,
+                      fiscaalPartner: e.target.checked
+                    })}
+                    className="w-4 h-4"
+                  />
+                  <label className="text-sm">Fiscaal partner</label>
+                </div>
+              </div>
+            )}
+            
+            {/* Start/End Year */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Startjaar</label>
+                <input
+                  type="number"
+                  value={formData.startYear || new Date().getFullYear()}
+                  onChange={(e) => updateField('startYear', parseInt(e.target.value))}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  min="2020"
+                  max="2100"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Eindjaar (optioneel)</label>
+                <input
+                  type="number"
+                  value={formData.endYear || ''}
+                  onChange={(e) => updateField('endYear', e.target.value ? parseInt(e.target.value) : null)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  min="2020"
+                  max="2100"
+                  placeholder="Onbeperkt"
+                />
+              </div>
+            </div>
+          </div>
+          
+          <div className="p-6 border-t flex gap-3 justify-end">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+            >
+              Annuleren
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark"
+            >
+              Opslaan
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
@@ -418,6 +894,8 @@ function App() {
 
   const [currentNetWorth, setCurrentNetWorth] = useState(20000);
   const [targetNetWorth, setTargetNetWorth] = useState(1500000);
+  const [editingItem, setEditingItem] = useState(null);
+  const [showAddDialog, setShowAddDialog] = useState(false);
 
   const assumptions = { inflationRate: 2, investmentReturn: 7 };
 
@@ -429,6 +907,38 @@ function App() {
     assumptions,
     targetNetWorth
   });
+
+  const handleDelete = (id) => {
+    if (confirm('Weet je zeker dat je dit item wilt verwijderen?')) {
+      setItems(items.filter(item => item.id !== id));
+    }
+  };
+
+  const handleEdit = (item) => {
+    setEditingItem(item);
+  };
+
+  const handleSave = (updatedItem) => {
+    if (updatedItem.id) {
+      setItems(items.map(item => item.id === updatedItem.id ? updatedItem : item));
+    } else {
+      setItems([...items, { ...updatedItem, id: Date.now() }]);
+    }
+    setEditingItem(null);
+    setShowAddDialog(false);
+  };
+
+  const handleAdd = (type) => {
+    setEditingItem({
+      type,
+      name: '',
+      amount: 0,
+      frequency: 'yearly',
+      startYear,
+      category: type === 'income' ? 'salary' : 'other'
+    });
+    setShowAddDialog(true);
+  };
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -456,31 +966,100 @@ function App() {
         <KPICard 
           icon="🎁" 
           label="Toeslagen p/j" 
-          value={formatCurrency(projections.timeline[0]?.cashflow.toeslagen || 0)} 
+          value={formatCurrency(projections.timeline?.[0]?.cashflow?.toeslagen ?? 0)} 
         />
       </div>
 
       <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-xl font-semibold mb-4">Items</h2>
-        <div className="space-y-2">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">Inkomsten & Uitgaven</h2>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => handleAdd('income')}
+              className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition"
+            >
+              + Inkomen
+            </button>
+            <button 
+              onClick={() => handleAdd('expense')}
+              className="px-4 py-2 bg-secondary text-white rounded hover:bg-blue-700 transition"
+            >
+              + Uitgave
+            </button>
+          </div>
+        </div>
+        
+        <div className="space-y-3">
           {items.map(item => (
-            <div key={item.id} className="flex justify-between items-center p-3 bg-gray-50 rounded">
-              <div>
-                <div className="font-medium">
-                  {item.type === 'income' ? '💰' : '💸'} {item.name}
+            <div key={item.id} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xl">
+                    {item.type === 'income' ? '💰' : '💸'}
+                  </span>
+                  <span className="font-medium text-lg">{item.name}</span>
+                  {item.category === 'housing' && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">🏠 Hypotheek</span>}
+                  {item.category === 'child-benefit' && <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">🍼 Kinderbijslag</span>}
+                  {item.category === 'childcare' && <span className="text-xs bg-teal-100 text-teal-800 px-2 py-1 rounded">👶 Kinderopvang</span>}
+                  {item.category === 'child-budget' && <span className="text-xs bg-pink-100 text-pink-800 px-2 py-1 rounded">👨‍👩‍👧 Kindgebonden budget</span>}
                 </div>
-                <div className="text-sm text-gray-600">
-                  {item.category === 'housing' && '🏠 Hypotheek'}
-                  {item.category === 'child-benefit' && `🍼 ${item.metadata.kinderenLeeftijden.length} kinderen`}
-                  {item.category === 'salary' && formatCurrency(item.amount)}
-                  {item.category === 'other' && formatCurrency(item.amount) + ' / ' + (item.frequency === 'monthly' ? 'maand' : 'jaar')}
+                
+                <div className="flex items-center gap-4 text-sm text-gray-600">
+                  <span className="font-semibold text-primary">
+                    {getItemDisplayAmount(item, assumptions)}/jaar
+                  </span>
+                  
+                  {item.category === 'child-benefit' && item.metadata?.kinderenLeeftijden && (
+                    <span>• {item.metadata.kinderenLeeftijden.length} {item.metadata.kinderenLeeftijden.length === 1 ? 'kind' : 'kinderen'} (leeftijd: {item.metadata.kinderenLeeftijden.join(', ')})</span>
+                  )}
+                  
+                  {item.category === 'childcare' && item.metadata?.kinderen && (
+                    <span>• {item.metadata.kinderen.length} {item.metadata.kinderen.length === 1 ? 'kind' : 'kinderen'}</span>
+                  )}
+                  
+                  {item.category === 'child-budget' && item.metadata?.aantalKinderen > 0 && (
+                    <span>• {item.metadata.aantalKinderen} {item.metadata.aantalKinderen === 1 ? 'kind' : 'kinderen'}</span>
+                  )}
+                  
+                  {item.category === 'housing' && item.metadata?.mortgage && (
+                    <span>• Restschuld: {formatCurrency(item.metadata.mortgage.outstandingAmount)} @ {item.metadata.mortgage.interestRate}%</span>
+                  )}
+                  
+                  {item.growthRate > 0 && (
+                    <span>• +{item.growthRate}% groei/jaar</span>
+                  )}
+                  
+                  {item.adjustForInflation && (
+                    <span>• Inflatie-gecorrigeerd</span>
+                  )}
+                  
+                  <span className="text-gray-400">• Vanaf {item.startYear}</span>
                 </div>
               </div>
-              <div className="text-sm text-gray-500">
-                Vanaf {item.startYear}
+              
+              <div className="flex gap-2 ml-4">
+                <button 
+                  onClick={() => handleEdit(item)}
+                  className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded transition"
+                >
+                  ✏️ Bewerk
+                </button>
+                <button 
+                  onClick={() => handleDelete(item.id)}
+                  className="px-3 py-1 text-sm bg-red-100 hover:bg-red-200 text-red-700 rounded transition"
+                >
+                  🗑️ Verwijder
+                </button>
               </div>
             </div>
           ))}
+          
+          {items.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              <p className="mb-2">Nog geen items toegevoegd</p>
+              <p className="text-sm">Klik op "+ Inkomen" of "+ Uitgave" om te beginnen</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -513,6 +1092,18 @@ function App() {
           ))}
         </div>
       </div>
+      
+      {/* Edit Dialog */}
+      {(editingItem || showAddDialog) && (
+        <SimpleEditDialog
+          item={editingItem}
+          onSave={handleSave}
+          onCancel={() => {
+            setEditingItem(null);
+            setShowAddDialog(false);
+          }}
+        />
+      )}
     </div>
   );
 }
