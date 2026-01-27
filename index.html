@@ -320,6 +320,56 @@
       return totaalJaar;
     };
     
+    // Eigenwoningforfait berekening (2026)
+    const berekenEigenwoningforfait = (wozWaarde) => {
+      const woz = parseFloat(wozWaarde) || 0;
+      
+      if (woz <= 75000) return 0;
+      if (woz <= 1350000) return woz * 0.0035;
+      
+      return 4725 + (woz - 1350000) * 0.0235;
+    };
+    
+    // Calculate verzamelinkomen (for toeslagen calculation)
+    const berekenVerzamelinkomen = (incomes, expenses, year, wozWaarde) => {
+      // Calculate gross income
+      let totalGrossIncome = 0;
+      
+      for (const income of incomes) {
+        if (!isActiveInYear(income, year)) continue;
+        const baseYearly = yearlyAmount(income.amount, income.frequency);
+        const yearsActive = Math.max(0, year - income.startYear);
+        const grown = grow(baseYearly, income.growthRate ?? 0, yearsActive);
+        totalGrossIncome += grown;
+      }
+      
+      // Calculate hypotheekrente
+      let hypotheekrente = 0;
+      for (const expense of expenses) {
+        if (!isActiveInYear(expense, year)) continue;
+        if (expense.category === 'housing' && expense.mortgageType) {
+          const yearsActive = Math.max(0, year - expense.startYear);
+          const mortgageData = calculateMortgageYear({
+            outstandingAmount: expense.outstandingAmount,
+            interestRate: expense.interestRate,
+            remainingMonths: expense.remainingMonths
+          }, yearsActive + 1);
+          hypotheekrente += mortgageData.interest;
+        }
+      }
+      
+      // Calculate eigenwoningforfait
+      const ewf = berekenEigenwoningforfait(wozWaarde);
+      
+      // Box 1 inkomen = bruto - hypotheekrente - AO + EWF
+      // (We don't have AO in the current system, so we skip it)
+      const box1Inkomen = totalGrossIncome - hypotheekrente + ewf;
+      
+      // For now, verzamelinkomen = box1Inkomen (Box 3 rendement is typically small)
+      // In future we can add Box 3 if needed
+      return box1Inkomen;
+    };
+    
     // Mortgage Calculation with Amortization
     const calculateMortgageYear = ({ outstandingAmount, interestRate, remainingMonths }, yearsSinceStart) => {
       const monthlyRate = (interestRate / 100) / 12;
@@ -548,12 +598,12 @@
       }).format(value);
     };
     
-    // Calculate estimated toeslag amount for display (uses avg income of 40k)
-    const calculateToeslagEstimate = (item) => {
-      const estimatedNetIncome = 40000; // Reasonable average for estimation
+    // Calculate actual toeslag amount for display based on current data
+    const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde) => {
+      const verzamelinkomen = berekenVerzamelinkomen(incomes, expenses, year, wozWaarde);
       
       if (item.category === 'childcare' && item.metadata?.kinderen) {
-        return berekenKinderopvangtoeslag(estimatedNetIncome, item.metadata.kinderen);
+        return berekenKinderopvangtoeslag(verzamelinkomen, item.metadata.kinderen);
       }
       
       if (item.category === 'child-benefit' && item.metadata?.kinderenLeeftijden) {
@@ -562,7 +612,7 @@
       
       if (item.category === 'child-budget' && item.metadata?.aantalKinderen) {
         return berekenKindgebondenBudget(
-          estimatedNetIncome,
+          verzamelinkomen,
           item.metadata.aantalKinderen,
           item.metadata.fiscaalPartner || false
         );
@@ -571,7 +621,7 @@
       return 0;
     };
 
-    function ItemList({ items, type, onEdit, onDelete }) {
+    function ItemList({ items, type, onEdit, onDelete, incomes, expenses, wozWaarde }) {
       if (items.length === 0) {
         return (
           <div className="text-sm text-gray-400 italic py-2">
@@ -624,8 +674,9 @@
                 <div className="text-xs text-gray-600">
                   {['childcare', 'child-benefit', 'child-budget'].includes(item.category) ? (
                     <>
-                      <span className="font-semibold text-primary">~{formatCurrency(calculateToeslagEstimate(item))} / jaar</span>
-                      <span className="text-gray-500 ml-1">(schatting o.b.v. €40k inkomen)</span>
+                      <span className="font-semibold text-primary">
+                        {formatCurrency(calculateToeslagAmount(item, incomes || [], expenses || [], new Date().getFullYear(), wozWaarde || 0))} / jaar
+                      </span>
                     </>
                   ) : (
                     <>
@@ -1354,6 +1405,7 @@
       
       const [currentNetWorth, setCurrentNetWorth] = useState(20000);
       const [targetNetWorth, setTargetNetWorth] = useState(1500000);
+      const [wozWaarde, setWozWaarde] = useState(0);
       
       const [assumptions, setAssumptions] = useState({
         inflationRate: 2.0,
@@ -1535,7 +1587,15 @@
                     </h2>
                     <button onClick={addIncome} className="text-primary hover:text-primary-dark text-xl" title="Voeg inkomen toe">+</button>
                   </div>
-                  <ItemList items={incomeItems} type="income" onEdit={editItem} onDelete={deleteItem} />
+                  <ItemList 
+                    items={incomeItems} 
+                    type="income" 
+                    onEdit={editItem} 
+                    onDelete={deleteItem}
+                    incomes={incomeItems}
+                    expenses={expenseItems}
+                    wozWaarde={wozWaarde}
+                  />
                 </div>
                 
                 <div className="bg-white rounded-lg shadow p-4">
@@ -1546,7 +1606,15 @@
                     </h2>
                     <button onClick={addExpense} className="text-primary hover:text-primary-dark text-xl" title="Voeg uitgave toe">+</button>
                   </div>
-                  <ItemList items={expenseItems} type="expense" onEdit={editItem} onDelete={deleteItem} />
+                  <ItemList 
+                    items={expenseItems} 
+                    type="expense" 
+                    onEdit={editItem} 
+                    onDelete={deleteItem}
+                    incomes={incomeItems}
+                    expenses={expenseItems}
+                    wozWaarde={wozWaarde}
+                  />
                 </div>
                 
                 <div className="bg-white rounded-lg shadow p-4">
@@ -1577,6 +1645,21 @@
                           step="10000"
                         />
                       </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">WOZ-waarde eigen woning</label>
+                      <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+                        <span className="px-2 py-1.5 text-sm text-gray-500 bg-gray-50 border-r">€</span>
+                        <input
+                          type="number"
+                          value={wozWaarde}
+                          onChange={(e) => setWozWaarde(parseFloat(e.target.value) || 0)}
+                          className="flex-1 px-2 py-1.5 text-sm border-0 focus:ring-1 focus:ring-primary"
+                          step="1000"
+                          placeholder="350000"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">Voor eigenwoningforfait berekening</p>
                     </div>
                   </div>
                 </div>
