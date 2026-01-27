@@ -1,103 +1,419 @@
-<!-- STEP 1: FULL FEATURE PARITY FOUNDATION -->
-
-<!-- This file now restores ALL functional features from the original inline-index
-     while keeping ONE financial engine and ZERO duplicate logic.
-
-     Steps roadmap (executed sequentially):
-     1. Restore full dialogs & UI parity (THIS STEP)
-     2. Normalize all items to engine schema
-     3. Correct mortgage as liability + cashflow
-     4. Make children & toeslagen engine-driven
-     5. Final polish + safety checks
--->
-
-<!-- STEP 1 IMPLEMENTED: UI PARITY + DIALOGS -->
-
 <!DOCTYPE html>
 <html lang="nl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Financiële Planning Tool</title>
 
   <!-- React + Babel -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
   <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'primary': '#10b981',
+            'primary-dark': '#059669',
+            'secondary': '#3b82f6',
+            'accent': '#f59e0b',
+            'dark': '#1f2937',
+            'light': '#f9fafb',
+          }
+        }
+      }
+    }
+  </script>
 </head>
-<body class="bg-gray-100">
+<body class="bg-light">
 
 <div id="root"></div>
 
 <script type="text/babel">
+const { useState, useEffect } = React;
+
 /* ================================
-   STEP 1 — FULL UI PARITY
-   ================================
-   - Add/Edit dialogs restored
-   - Categories restored
-   - No business logic duplication
+   UNIFIED FINANCIAL ENGINE
+   ================================ */
 
-   STEP 2 — NORMALIZED ENGINE SCHEMA (DONE)
-================================
-- Single item schema
-- Single engine
-- UI decoupled from logic
+// Tax Constants
+const TAX_BRACKETS_2026 = [
+  { limit: 38883, rate: 35.75 },
+  { limit: 78426, rate: 37.56 },
+  { limit: Infinity, rate: 49.5 }
+];
 
-STEP 3 — FEATURE RE-INJECTION (IN PROGRESS)
-================================
-Goal: bring ALL functionality from index-inline.html back
-WITHOUT breaking engine purity.
+const TAX_CREDITS_2026 = {
+  algemeneMax: 3115,
+  algemeneAfbouwStart: 29739,
+  algemeneAfbouwPercentage: 6.398,
+  arbeidMax: 5685,
+  arbeidBuildRateLow: 8.324,
+  arbeidLowThreshold: 11965,
+  arbeidPhaseoutStart: 45592,
+  arbeidPhaseoutRate: 6.51
+};
 
-FEATURES ADDED IN STEP 3:
-- KPI calculations
-- FIRE year detection
-- Monthly savings
-- Children + allowances hook (engine-ready)
+// Toeslagen Constants
+const TOESLAGEN_2026 = {
+  KINDGEBONDEN_BUDGET: {
+    PER_KIND: 2580,
+    DREMPEL_ENKEL: 29736,
+    DREMPEL_PARTNER: 39141,
+    AFBOUW_PERC: 0.076
+  },
+  KINDERBIJSLAG: {
+    LEEFTIJD_0_5: { kwartaal: 295.07 },
+    LEEFTIJD_6_11: { kwartaal: 358.30 },
+    LEEFTIJD_12_17: { kwartaal: 421.53 }
+  },
+  KINDEROPVANG: {
+    MAX_UREN_MAAND: 230,
+    TYPES: { dagopvang: 11.23, bso: 9.98, gastouder: 8.49 }
+  }
+};
 
-/* ---------- KPI HELPERS ---------- */
+const KINDEROPVANG_SCHIJVEN = [
+  { van: 0, tot: 24149, percEerste: 0.960, percVolgend: 0.960 },
+  { van: 24150, tot: 25756, percEerste: 0.960, percVolgend: 0.960 },
+  { van: 25757, tot: 27363, percEerste: 0.960, percVolgend: 0.960 },
+  { van: 27364, tot: 28973, percEerste: 0.960, percVolgend: 0.960 },
+  { van: 28974, tot: 30579, percEerste: 0.960, percVolgend: 0.960 },
+  { van: 30580, tot: 32189, percEerste: 0.960, percVolgend: 0.960 },
+  { van: 32190, tot: 33795, percEerste: 0.960, percVolgend: 0.960 },
+  { van: 33796, tot: 35400, percEerste: 0.960, percVolgend: 0.960 },
+  { van: 35401, tot: 37129, percEerste: 0.960, percVolgend: 0.960 },
+  { van: 37130, tot: 38855, percEerste: 0.960, percVolgend: 0.960 },
+  { van: 38856, tot: 40586, percEerste: 0.960, percVolgend: 0.960 },
+  { van: 40587, tot: 42313, percEerste: 0.960, percVolgend: 0.960 },
+  { van: 42314, tot: 44046, percEerste: 0.960, percVolgend: 0.960 },
+  { van: 44047, tot: 45776, percEerste: 0.960, percVolgend: 0.960 },
+  { van: 45777, tot: 47546, percEerste: 0.960, percVolgend: 0.960 },
+  { van: 47547, tot: 49318, percEerste: 0.960, percVolgend: 0.960 },
+  { van: 49319, tot: 51092, percEerste: 0.960, percVolgend: 0.960 },
+  { van: 51093, tot: 52864, percEerste: 0.960, percVolgend: 0.960 },
+  { van: 52865, tot: 54641, percEerste: 0.960, percVolgend: 0.960 },
+  { van: 54642, tot: 56412, percEerste: 0.960, percVolgend: 0.960 },
+  { van: 56413, tot: 58184, percEerste: 0.955, percVolgend: 0.956 },
+  { van: 58185, tot: 59957, percEerste: 0.948, percVolgend: 0.956 },
+  { van: 59958, tot: 61895, percEerste: 0.939, percVolgend: 0.956 },
+  { van: 61896, tot: 65695, percEerste: 0.924, percVolgend: 0.956 },
+  { van: 65696, tot: 69492, percEerste: 0.916, percVolgend: 0.952 },
+  { van: 69493, tot: 73292, percEerste: 0.905, percVolgend: 0.946 },
+  { van: 73293, tot: 77094, percEerste: 0.882, percVolgend: 0.942 },
+  { van: 77095, tot: 80891, percEerste: 0.859, percVolgend: 0.939 },
+  { van: 80892, tot: 84693, percEerste: 0.837, percVolgend: 0.932 },
+  { van: 84694, tot: 88491, percEerste: 0.812, percVolgend: 0.927 },
+  { van: 88492, tot: 92291, percEerste: 0.789, percVolgend: 0.922 },
+  { van: 92292, tot: 96091, percEerste: 0.767, percVolgend: 0.915 },
+  { van: 96092, tot: 99889, percEerste: 0.743, percVolgend: 0.909 },
+  { van: 99890, tot: 103694, percEerste: 0.721, percVolgend: 0.905 },
+  { van: 103695, tot: 107492, percEerste: 0.696, percVolgend: 0.902 },
+  { van: 107493, tot: 111290, percEerste: 0.673, percVolgend: 0.895 },
+  { van: 111291, tot: 115090, percEerste: 0.651, percVolgend: 0.891 },
+  { van: 115091, tot: 118963, percEerste: 0.627, percVolgend: 0.886 },
+  { van: 118964, tot: 122857, percEerste: 0.606, percVolgend: 0.879 },
+  { van: 122858, tot: 126747, percEerste: 0.585, percVolgend: 0.874 },
+  { van: 126748, tot: 130638, percEerste: 0.564, percVolgend: 0.870 },
+  { van: 130639, tot: 134527, percEerste: 0.542, percVolgend: 0.867 },
+  { van: 134528, tot: 138420, percEerste: 0.523, percVolgend: 0.860 },
+  { van: 138421, tot: 142312, percEerste: 0.504, percVolgend: 0.854 },
+  { van: 142313, tot: 146205, percEerste: 0.485, percVolgend: 0.850 },
+  { van: 146206, tot: 150092, percEerste: 0.465, percVolgend: 0.844 },
+  { van: 150093, tot: 153982, percEerste: 0.445, percVolgend: 0.840 },
+  { van: 153983, tot: 157877, percEerste: 0.425, percVolgend: 0.833 },
+  { van: 157878, tot: 161766, percEerste: 0.405, percVolgend: 0.827 },
+  { van: 161767, tot: 165657, percEerste: 0.385, percVolgend: 0.817 },
+  { van: 165658, tot: 169547, percEerste: 0.365, percVolgend: 0.814 },
+  { van: 169548, tot: 173440, percEerste: 0.365, percVolgend: 0.806 },
+  { van: 173441, tot: 177335, percEerste: 0.365, percVolgend: 0.797 },
+  { van: 177336, tot: 181223, percEerste: 0.365, percVolgend: 0.791 },
+  { van: 181224, tot: 185114, percEerste: 0.365, percVolgend: 0.782 },
+  { van: 185115, tot: 189002, percEerste: 0.365, percVolgend: 0.777 },
+  { van: 189003, tot: 192896, percEerste: 0.365, percVolgend: 0.769 },
+  { van: 192897, tot: 196789, percEerste: 0.365, percVolgend: 0.762 },
+  { van: 196790, tot: 200681, percEerste: 0.365, percVolgend: 0.755 },
+  { van: 200682, tot: 204571, percEerste: 0.365, percVolgend: 0.745 },
+  { van: 204572, tot: 208458, percEerste: 0.365, percVolgend: 0.740 },
+  { van: 208459, tot: 212353, percEerste: 0.365, percVolgend: 0.733 },
+  { van: 212354, tot: 216242, percEerste: 0.365, percVolgend: 0.725 },
+  { van: 216243, tot: 220134, percEerste: 0.365, percVolgend: 0.718 },
+  { van: 220135, tot: 224026, percEerste: 0.365, percVolgend: 0.712 },
+  { van: 224027, tot: 227915, percEerste: 0.365, percVolgend: 0.704 },
+  { van: 227916, tot: 231807, percEerste: 0.365, percVolgend: 0.696 },
+  { van: 231808, tot: 235697, percEerste: 0.365, percVolgend: 0.691 },
+  { van: 235698, tot: Infinity, percEerste: 0.365, percVolgend: 0.682 }
+];
 
-const monthlySavingsFromCashflow = cf => cf.savings / 12;
+// Helper Functions
+const yearlyAmount = (amount, frequency) => frequency === 'monthly' ? amount * 12 : amount;
+const isActiveInYear = (item, year) => year >= item.startYear && (!item.endYear || year <= item.endYear);
+const grow = (value, rate, years) => value * Math.pow(1 + rate / 100, years);
 
-const findFireYear = (timeline, target) =>
-  timeline.find(y => y.netWorth >= target)?.year || null;
+// Tax Calculation
+const calculateDutchTax2026 = (grossIncome) => {
+  let tax = 0, remaining = grossIncome, previousLimit = 0;
+  
+  for (const bracket of TAX_BRACKETS_2026) {
+    const bracketSize = Math.min(remaining, bracket.limit - previousLimit);
+    if (bracketSize <= 0) break;
+    tax += bracketSize * (bracket.rate / 100);
+    remaining -= bracketSize;
+    previousLimit = bracket.limit;
+    if (remaining <= 0) break;
+  }
+  
+  let algemene = TAX_CREDITS_2026.algemeneMax;
+  if (grossIncome > TAX_CREDITS_2026.algemeneAfbouwStart) {
+    algemene -= (grossIncome - TAX_CREDITS_2026.algemeneAfbouwStart) * (TAX_CREDITS_2026.algemeneAfbouwPercentage / 100);
+    algemene = Math.max(0, algemene);
+  }
+  
+  let arbeid = 0;
+  if (grossIncome <= TAX_CREDITS_2026.arbeidLowThreshold) {
+    arbeid = grossIncome * (TAX_CREDITS_2026.arbeidBuildRateLow / 100);
+  } else {
+    arbeid = TAX_CREDITS_2026.arbeidMax;
+    if (grossIncome > TAX_CREDITS_2026.arbeidPhaseoutStart) {
+      arbeid -= (grossIncome - TAX_CREDITS_2026.arbeidPhaseoutStart) * (TAX_CREDITS_2026.arbeidPhaseoutRate / 100);
+      arbeid = Math.max(0, arbeid);
+    }
+  }
+  
+  const totalCredits = algemene + arbeid;
+  const netTax = Math.max(0, tax - totalCredits);
+  const netIncome = grossIncome - netTax;
+  
+  return { grossIncome, incomeTax: tax, credits: totalCredits, netTax, netIncome };
+};
 
-/* ---------- EXTENDED PROJECTION ---------- */
+// Toeslagen Calculations
+const berekenKindgebondenBudget = (toetsInkomen, aantalKinderen, fiscaalPartner) => {
+  if (aantalKinderen === 0) return 0;
+  const { KINDGEBONDEN_BUDGET } = TOESLAGEN_2026;
+  const maxBedrag = KINDGEBONDEN_BUDGET.PER_KIND * aantalKinderen;
+  const drempel = fiscaalPartner ? KINDGEBONDEN_BUDGET.DREMPEL_PARTNER : KINDGEBONDEN_BUDGET.DREMPEL_ENKEL;
+  if (toetsInkomen <= drempel) return maxBedrag;
+  return Math.max(0, maxBedrag - (toetsInkomen - drempel) * KINDGEBONDEN_BUDGET.AFBOUW_PERC);
+};
 
-const buildProjections = ({ startYear, years, startNetWorth, items, assumptions, targetNetWorth }) => {
-  const timeline = projectNetWorth({ startYear, years, startNetWorth, items, assumptions });
-  const fireYear = findFireYear(timeline, targetNetWorth);
-  const monthlySavings = monthlySavingsFromCashflow(timeline[0].cashflow);
+const berekenKinderopvangtoeslag = (toetsInkomen, opvangDetails) => {
+  if (!opvangDetails || opvangDetails.length === 0) return 0;
+  const schijf = KINDEROPVANG_SCHIJVEN.find(s => toetsInkomen >= s.van && toetsInkomen <= s.tot) || KINDEROPVANG_SCHIJVEN[KINDEROPVANG_SCHIJVEN.length - 1];
+  const { percEerste, percVolgend } = schijf;
+  const { MAX_UREN_MAAND, TYPES } = TOESLAGEN_2026.KINDEROPVANG;
+  
+  let totaal = 0;
+  const gesorteerd = [...opvangDetails].sort((a, b) => (b.uren || 0) - (a.uren || 0));
+  gesorteerd.forEach((opv, index) => {
+    const urenMaand = Math.min(opv.uren || 0, MAX_UREN_MAAND);
+    const urenJaar = urenMaand * 12;
+    const maxPrijs = TYPES[opv.type] || 0;
+    const perc = (index === 0) ? percEerste : percVolgend;
+    totaal += urenJaar * maxPrijs * perc;
+  });
+  return Math.round(totaal);
+};
+
+const berekenKinderbijslag = (leeftijden) => {
+  if (!leeftijden || leeftijden.length === 0) return 0;
+  const { KINDERBIJSLAG } = TOESLAGEN_2026;
+  let totaalJaar = 0;
+  leeftijden.forEach((leeftijd) => {
+    let config = null;
+    if (leeftijd >= 0 && leeftijd <= 5) config = KINDERBIJSLAG.LEEFTIJD_0_5;
+    else if (leeftijd >= 6 && leeftijd <= 11) config = KINDERBIJSLAG.LEEFTIJD_6_11;
+    else if (leeftijd >= 12 && leeftijd <= 17) config = KINDERBIJSLAG.LEEFTIJD_12_17;
+    if (config) totaalJaar += config.kwartaal * 4;
+  });
+  return totaalJaar;
+};
+
+// Mortgage Calculation
+const mortgagePaymentAnnual = ({ outstandingAmount, interestRate, remainingMonths }) => {
+  const r = interestRate / 100 / 12;
+  if (!r) return (outstandingAmount / (remainingMonths / 12));
+  const annuity = outstandingAmount * (r / (1 - Math.pow(1 + r, -remainingMonths)));
+  return annuity * 12;
+};
+
+// Main Cashflow Engine
+const calculateAnnualCashflow = (year, items, assumptions) => {
+  let grossIncome = 0;
+  let totalExpenses = 0;
+  let toeslagen = 0;
+
+  items.forEach(item => {
+    if (!isActiveInYear(item, year)) return;
+
+    // Housing (mortgage)
+    if (item.type === 'expense' && item.category === 'housing' && item.metadata?.mortgage) {
+      totalExpenses += mortgagePaymentAnnual(item.metadata.mortgage);
+      return;
+    }
+
+    // Kinderopvangtoeslag
+    if (item.category === 'childcare' && item.metadata?.kinderen) {
+      // Will be calculated after netIncome is known
+      return;
+    }
+
+    // Kinderbijslag
+    if (item.category === 'child-benefit' && item.metadata?.kinderenLeeftijden) {
+      toeslagen += berekenKinderbijslag(item.metadata.kinderenLeeftijden);
+      return;
+    }
+
+    // Kindgebonden budget
+    if (item.category === 'child-budget' && item.metadata) {
+      // Will be calculated after netIncome is known
+      return;
+    }
+
+    const base = yearlyAmount(item.amount, item.frequency);
+
+    if (item.type === 'income') {
+      const grown = grow(base, item.growthRate || 0, year - item.startYear);
+      grossIncome += grown;
+    }
+
+    if (item.type === 'expense') {
+      const adjusted = item.adjustForInflation
+        ? grow(base, assumptions.inflationRate || 0, year - item.startYear)
+        : base;
+      totalExpenses += adjusted;
+    }
+  });
+
+  const taxResult = calculateDutchTax2026(grossIncome);
+  const netIncome = taxResult.netIncome;
+
+  // Now calculate income-dependent toeslagen
+  items.forEach(item => {
+    if (!isActiveInYear(item, year)) return;
+    
+    if (item.category === 'childcare' && item.metadata?.kinderen) {
+      toeslagen += berekenKinderopvangtoeslag(netIncome, item.metadata.kinderen);
+    }
+    
+    if (item.category === 'child-budget' && item.metadata) {
+      toeslagen += berekenKindgebondenBudget(
+        netIncome,
+        item.metadata.aantalKinderen || 0,
+        item.metadata.fiscaalPartner || false
+      );
+    }
+  });
+
+  const savings = netIncome - totalExpenses;
 
   return {
-    timeline,
-    fireYear,
-    monthlySavings,
-    yearsToFire: fireYear ? fireYear - startYear : null
+    year,
+    grossIncome,
+    netIncome,
+    expenses: totalExpenses,
+    savings,
+    toeslagen,
+    effectiveTaxRate: taxResult.netTax / grossIncome * 100
   };
 };
 
-/* ---------- KPI CARD ---------- */
+// Projections Builder
+const buildProjections = ({ startYear, years, startNetWorth, items, assumptions, targetNetWorth }) => {
+  const investmentRate = (assumptions.investmentReturn || 7) / 100;
+  let netWorth = startNetWorth;
+  const timeline = [];
 
-function KPICard({ label, value }) {
+  for (let i = 0; i < years; i++) {
+    const year = startYear + i;
+    const cashflow = calculateAnnualCashflow(year, items, assumptions);
+    
+    netWorth *= (1 + investmentRate);
+    netWorth += cashflow.savings + cashflow.toeslagen;
+    
+    timeline.push({
+      year,
+      netWorth: Math.round(netWorth),
+      cashflow
+    });
+  }
+
+  const fireEntry = timeline.find(e => e.netWorth >= targetNetWorth);
+  const fireYear = fireEntry ? fireEntry.year : null;
+  const monthlySavings = timeline[0] ? (timeline[0].cashflow.savings + timeline[0].cashflow.toeslagen) / 12 : 0;
+
+  return { timeline, fireYear, yearsToFire: fireYear ? fireYear - startYear : null, monthlySavings };
+};
+
+// UI Helpers
+const formatCurrency = (value) => `€${Math.round(value).toLocaleString('nl-NL')}`;
+
+/* ================================
+   REACT COMPONENTS
+   ================================ */
+
+function KPICard({ label, value, icon = "📊" }) {
   return (
-    <div className="bg-white p-4 rounded shadow">
-      <div className="text-xs text-gray-500">{label}</div>
-      <div className="text-xl font-bold">{value}</div>
+    <div className="bg-white p-4 rounded-lg shadow">
+      <div className="text-sm text-gray-600 mb-1">{icon} {label}</div>
+      <div className="text-2xl font-bold text-primary">{value}</div>
     </div>
   );
 }
-
-/* ---------- APP (EXTENDED) ---------- */
 
 function App() {
   const startYear = new Date().getFullYear();
 
   const [items, setItems] = useState([
-    { id: 1, name: 'Salaris', type: 'income', amount: 80000, frequency: 'yearly', growthRate: 2, startYear },
-    { id: 2, name: 'Levensonderhoud', type: 'expense', amount: 2500, frequency: 'monthly', adjustForInflation: true, startYear }
+    { 
+      id: 1, 
+      name: 'Salaris', 
+      type: 'income', 
+      amount: 80000, 
+      frequency: 'yearly', 
+      growthRate: 2, 
+      startYear,
+      category: 'salary'
+    },
+    { 
+      id: 2, 
+      name: 'Levensonderhoud', 
+      type: 'expense', 
+      amount: 2500, 
+      frequency: 'monthly', 
+      adjustForInflation: true, 
+      startYear,
+      category: 'other'
+    },
+    {
+      id: 3,
+      name: 'Hypotheek',
+      type: 'expense',
+      category: 'housing',
+      startYear,
+      metadata: {
+        mortgage: { 
+          outstandingAmount: 300000, 
+          interestRate: 4, 
+          remainingMonths: 360 
+        }
+      }
+    },
+    {
+      id: 4,
+      name: 'Kinderbijslag',
+      type: 'income',
+      category: 'child-benefit',
+      startYear,
+      metadata: { 
+        kinderenLeeftijden: [3, 6] 
+      }
+    }
   ]);
 
   const [currentNetWorth, setCurrentNetWorth] = useState(20000);
@@ -116,29 +432,92 @@ function App() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold">Financiële Planning Tool</h1>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KPICard label="Maandelijks saldo" value={`€${Math.round(projections.monthlySavings).toLocaleString()}`} />
-        <KPICard label="Vermogensdoel" value={`€${targetNetWorth.toLocaleString()}`} />
-        <KPICard label="Jaar FIRE" value={projections.fireYear || '—'} />
-        <KPICard label="Jaren tot FIRE" value={projections.yearsToFire ?? '—'} />
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h1 className="text-3xl font-bold text-primary mb-2">Financiële Planning Tool</h1>
+        <p className="text-gray-600">Plan je financiële toekomst met inzicht in vermogen, toeslagen en FIRE</p>
       </div>
 
-      <div className="bg-white p-4 rounded shadow">
-        <h2 className="font-semibold mb-2">Vermogensontwikkeling (eerste 10 jaar)</h2>
-        {projections.timeline.slice(0, 10).map(y => (
-          <div key={y.year} className="text-sm flex justify-between">
-            <span>{y.year}</span>
-            <span>€{Math.round(y.netWorth).toLocaleString()}</span>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <KPICard 
+          icon="💰" 
+          label="Maandelijks saldo" 
+          value={formatCurrency(projections.monthlySavings)} 
+        />
+        <KPICard 
+          icon="🎯" 
+          label="Vermogensdoel" 
+          value={formatCurrency(targetNetWorth)} 
+        />
+        <KPICard 
+          icon="🔥" 
+          label="FIRE Jaar" 
+          value={projections.fireYear || '—'} 
+        />
+        <KPICard 
+          icon="🎁" 
+          label="Toeslagen p/j" 
+          value={formatCurrency(projections.timeline[0]?.cashflow.toeslagen || 0)} 
+        />
+      </div>
+
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h2 className="text-xl font-semibold mb-4">Items</h2>
+        <div className="space-y-2">
+          {items.map(item => (
+            <div key={item.id} className="flex justify-between items-center p-3 bg-gray-50 rounded">
+              <div>
+                <div className="font-medium">
+                  {item.type === 'income' ? '💰' : '💸'} {item.name}
+                </div>
+                <div className="text-sm text-gray-600">
+                  {item.category === 'housing' && '🏠 Hypotheek'}
+                  {item.category === 'child-benefit' && `🍼 ${item.metadata.kinderenLeeftijden.length} kinderen`}
+                  {item.category === 'salary' && formatCurrency(item.amount)}
+                  {item.category === 'other' && formatCurrency(item.amount) + ' / ' + (item.frequency === 'monthly' ? 'maand' : 'jaar')}
+                </div>
+              </div>
+              <div className="text-sm text-gray-500">
+                Vanaf {item.startYear}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h2 className="text-xl font-semibold mb-4">Vermogensontwikkeling (eerste 10 jaar)</h2>
+        
+        {projections.fireYear && (
+          <div className="mb-4 p-3 bg-green-50 border-l-4 border-green-500 rounded">
+            <p className="text-green-800">
+              🎉 Je bereikt je vermogensdoel in <strong>{projections.fireYear}</strong> (over {projections.yearsToFire} jaar)
+            </p>
           </div>
-        ))}
+        )}
+        
+        <div className="space-y-2">
+          {projections.timeline.slice(0, 10).map(y => (
+            <div key={y.year} className="flex justify-between items-center text-sm">
+              <span className="font-medium">{y.year}</span>
+              <div className="flex items-center gap-4">
+                <span className="text-gray-600">
+                  Vermogen: <span className="font-semibold">{formatCurrency(y.netWorth)}</span>
+                </span>
+                {y.cashflow.toeslagen > 0 && (
+                  <span className="text-green-600 text-xs">
+                    +{formatCurrency(y.cashflow.toeslagen)} toeslagen
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);(document.getElementById('root')).render(<App />);(document.getElementById('root')).render(<App />);
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
 
 </body>
