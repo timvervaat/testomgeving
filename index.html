@@ -3,15 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Financiële Planning Tool</title>
-
-  <!-- React + Babel -->
+  <title>Financieel Planner</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React en ReactDOM -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- Babel Standalone voor JSX -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-  <!-- Tailwind -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+  </style>
   
   <script>
     tailwind.config = {
@@ -31,1085 +41,1586 @@
   </script>
 </head>
 <body class="bg-light">
-
-<div id="root"></div>
-
-<script type="text/babel">
-const { useState, useEffect } = React;
-
-/* ================================
-   UNIFIED FINANCIAL ENGINE
-   ================================ */
-
-// Tax Constants
-const TAX_BRACKETS_2026 = [
-  { limit: 38883, rate: 35.75 },
-  { limit: 78426, rate: 37.56 },
-  { limit: Infinity, rate: 49.5 }
-];
-
-const TAX_CREDITS_2026 = {
-  algemeneMax: 3115,
-  algemeneAfbouwStart: 29739,
-  algemeneAfbouwPercentage: 6.398,
-  arbeidMax: 5685,
-  arbeidBuildRateLow: 8.324,
-  arbeidLowThreshold: 11965,
-  arbeidPhaseoutStart: 45592,
-  arbeidPhaseoutRate: 6.51
-};
-
-// Toeslagen Constants (with inflation adjustment capability)
-const TOESLAGEN_2026 = {
-  KINDGEBONDEN_BUDGET: {
-    PER_KIND: 2580,
-    DREMPEL_ENKEL: 29736,
-    DREMPEL_PARTNER: 39141,
-    AFBOUW_PERC: 0.076,
-    INFLATION_LAG: 1 // Toeslagen stijgen met 1 jaar vertraging
-  },
-  KINDERBIJSLAG: {
-    LEEFTIJD_0_5: { kwartaal: 295.07 },
-    LEEFTIJD_6_11: { kwartaal: 358.30 },
-    LEEFTIJD_12_17: { kwartaal: 421.53 },
-    INFLATION_LAG: 1
-  },
-  KINDEROPVANG: {
-    MAX_UREN_MAAND: 230,
-    TYPES: { dagopvang: 11.23, bso: 9.98, gastouder: 8.49 },
-    INFLATION_LAG: 1
-  }
-};
-
-const KINDEROPVANG_SCHIJVEN = [
-  { van: 0, tot: 24149, percEerste: 0.960, percVolgend: 0.960 },
-  { van: 24150, tot: 25756, percEerste: 0.960, percVolgend: 0.960 },
-  { van: 25757, tot: 27363, percEerste: 0.960, percVolgend: 0.960 },
-  { van: 27364, tot: 28973, percEerste: 0.960, percVolgend: 0.960 },
-  { van: 28974, tot: 30579, percEerste: 0.960, percVolgend: 0.960 },
-  { van: 30580, tot: 32189, percEerste: 0.960, percVolgend: 0.960 },
-  { van: 32190, tot: 33795, percEerste: 0.960, percVolgend: 0.960 },
-  { van: 33796, tot: 35400, percEerste: 0.960, percVolgend: 0.960 },
-  { van: 35401, tot: 37129, percEerste: 0.960, percVolgend: 0.960 },
-  { van: 37130, tot: 38855, percEerste: 0.960, percVolgend: 0.960 },
-  { van: 38856, tot: 40586, percEerste: 0.960, percVolgend: 0.960 },
-  { van: 40587, tot: 42313, percEerste: 0.960, percVolgend: 0.960 },
-  { van: 42314, tot: 44046, percEerste: 0.960, percVolgend: 0.960 },
-  { van: 44047, tot: 45776, percEerste: 0.960, percVolgend: 0.960 },
-  { van: 45777, tot: 47546, percEerste: 0.960, percVolgend: 0.960 },
-  { van: 47547, tot: 49318, percEerste: 0.960, percVolgend: 0.960 },
-  { van: 49319, tot: 51092, percEerste: 0.960, percVolgend: 0.960 },
-  { van: 51093, tot: 52864, percEerste: 0.960, percVolgend: 0.960 },
-  { van: 52865, tot: 54641, percEerste: 0.960, percVolgend: 0.960 },
-  { van: 54642, tot: 56412, percEerste: 0.960, percVolgend: 0.960 },
-  { van: 56413, tot: 58184, percEerste: 0.955, percVolgend: 0.956 },
-  { van: 58185, tot: 59957, percEerste: 0.948, percVolgend: 0.956 },
-  { van: 59958, tot: 61895, percEerste: 0.939, percVolgend: 0.956 },
-  { van: 61896, tot: 65695, percEerste: 0.924, percVolgend: 0.956 },
-  { van: 65696, tot: 69492, percEerste: 0.916, percVolgend: 0.952 },
-  { van: 69493, tot: 73292, percEerste: 0.905, percVolgend: 0.946 },
-  { van: 73293, tot: 77094, percEerste: 0.882, percVolgend: 0.942 },
-  { van: 77095, tot: 80891, percEerste: 0.859, percVolgend: 0.939 },
-  { van: 80892, tot: 84693, percEerste: 0.837, percVolgend: 0.932 },
-  { van: 84694, tot: 88491, percEerste: 0.812, percVolgend: 0.927 },
-  { van: 88492, tot: 92291, percEerste: 0.789, percVolgend: 0.922 },
-  { van: 92292, tot: 96091, percEerste: 0.767, percVolgend: 0.915 },
-  { van: 96092, tot: 99889, percEerste: 0.743, percVolgend: 0.909 },
-  { van: 99890, tot: 103694, percEerste: 0.721, percVolgend: 0.905 },
-  { van: 103695, tot: 107492, percEerste: 0.696, percVolgend: 0.902 },
-  { van: 107493, tot: 111290, percEerste: 0.673, percVolgend: 0.895 },
-  { van: 111291, tot: 115090, percEerste: 0.651, percVolgend: 0.891 },
-  { van: 115091, tot: 118963, percEerste: 0.627, percVolgend: 0.886 },
-  { van: 118964, tot: 122857, percEerste: 0.606, percVolgend: 0.879 },
-  { van: 122858, tot: 126747, percEerste: 0.585, percVolgend: 0.874 },
-  { van: 126748, tot: 130638, percEerste: 0.564, percVolgend: 0.870 },
-  { van: 130639, tot: 134527, percEerste: 0.542, percVolgend: 0.867 },
-  { van: 134528, tot: 138420, percEerste: 0.523, percVolgend: 0.860 },
-  { van: 138421, tot: 142312, percEerste: 0.504, percVolgend: 0.854 },
-  { van: 142313, tot: 146205, percEerste: 0.485, percVolgend: 0.850 },
-  { van: 146206, tot: 150092, percEerste: 0.465, percVolgend: 0.844 },
-  { van: 150093, tot: 153982, percEerste: 0.445, percVolgend: 0.840 },
-  { van: 153983, tot: 157877, percEerste: 0.425, percVolgend: 0.833 },
-  { van: 157878, tot: 161766, percEerste: 0.405, percVolgend: 0.827 },
-  { van: 161767, tot: 165657, percEerste: 0.385, percVolgend: 0.817 },
-  { van: 165658, tot: 169547, percEerste: 0.365, percVolgend: 0.814 },
-  { van: 169548, tot: 173440, percEerste: 0.365, percVolgend: 0.806 },
-  { van: 173441, tot: 177335, percEerste: 0.365, percVolgend: 0.797 },
-  { van: 177336, tot: 181223, percEerste: 0.365, percVolgend: 0.791 },
-  { van: 181224, tot: 185114, percEerste: 0.365, percVolgend: 0.782 },
-  { van: 185115, tot: 189002, percEerste: 0.365, percVolgend: 0.777 },
-  { van: 189003, tot: 192896, percEerste: 0.365, percVolgend: 0.769 },
-  { van: 192897, tot: 196789, percEerste: 0.365, percVolgend: 0.762 },
-  { van: 196790, tot: 200681, percEerste: 0.365, percVolgend: 0.755 },
-  { van: 200682, tot: 204571, percEerste: 0.365, percVolgend: 0.745 },
-  { van: 204572, tot: 208458, percEerste: 0.365, percVolgend: 0.740 },
-  { van: 208459, tot: 212353, percEerste: 0.365, percVolgend: 0.733 },
-  { van: 212354, tot: 216242, percEerste: 0.365, percVolgend: 0.725 },
-  { van: 216243, tot: 220134, percEerste: 0.365, percVolgend: 0.718 },
-  { van: 220135, tot: 224026, percEerste: 0.365, percVolgend: 0.712 },
-  { van: 224027, tot: 227915, percEerste: 0.365, percVolgend: 0.704 },
-  { van: 227916, tot: 231807, percEerste: 0.365, percVolgend: 0.696 },
-  { van: 231808, tot: 235697, percEerste: 0.365, percVolgend: 0.691 },
-  { van: 235698, tot: Infinity, percEerste: 0.365, percVolgend: 0.682 }
-];
-
-// Helper Functions
-const yearlyAmount = (amount, frequency) => frequency === 'monthly' ? amount * 12 : amount;
-const isActiveInYear = (item, year) => year >= item.startYear && (!item.endYear || year <= item.endYear);
-const grow = (value, rate, years) => {
-  const safeYears = Math.max(0, years); // Prevent negative years
-  return value * Math.pow(1 + rate / 100, safeYears);
-};
-
-// Tax Calculation
-const calculateDutchTax2026 = (grossIncome) => {
-  let tax = 0, remaining = grossIncome, previousLimit = 0;
+  <div id="root"></div>
   
-  for (const bracket of TAX_BRACKETS_2026) {
-    const bracketSize = Math.min(remaining, bracket.limit - previousLimit);
-    if (bracketSize <= 0) break;
-    tax += bracketSize * (bracket.rate / 100);
-    remaining -= bracketSize;
-    previousLimit = bracket.limit;
-    if (remaining <= 0) break;
-  }
-  
-  let algemene = TAX_CREDITS_2026.algemeneMax;
-  if (grossIncome > TAX_CREDITS_2026.algemeneAfbouwStart) {
-    algemene -= (grossIncome - TAX_CREDITS_2026.algemeneAfbouwStart) * (TAX_CREDITS_2026.algemeneAfbouwPercentage / 100);
-    algemene = Math.max(0, algemene);
-  }
-  
-  let arbeid = 0;
-  if (grossIncome <= TAX_CREDITS_2026.arbeidLowThreshold) {
-    arbeid = grossIncome * (TAX_CREDITS_2026.arbeidBuildRateLow / 100);
-  } else {
-    arbeid = TAX_CREDITS_2026.arbeidMax;
-    if (grossIncome > TAX_CREDITS_2026.arbeidPhaseoutStart) {
-      arbeid -= (grossIncome - TAX_CREDITS_2026.arbeidPhaseoutStart) * (TAX_CREDITS_2026.arbeidPhaseoutRate / 100);
-      arbeid = Math.max(0, arbeid);
-    }
-  }
-  
-  const totalCredits = algemene + arbeid;
-  const netTax = Math.max(0, tax - totalCredits);
-  const netIncome = grossIncome - netTax;
-  
-  return { grossIncome, incomeTax: tax, credits: totalCredits, netTax, netIncome };
-};
-
-// Toeslagen Calculations (with inflation adjustment)
-const berekenKindgebondenBudget = (toetsInkomen, aantalKinderen, fiscaalPartner, inflationFactor = 1) => {
-  if (aantalKinderen === 0) return 0;
-  const { KINDGEBONDEN_BUDGET } = TOESLAGEN_2026;
-  const maxBedrag = KINDGEBONDEN_BUDGET.PER_KIND * aantalKinderen * inflationFactor;
-  const drempel = fiscaalPartner ? KINDGEBONDEN_BUDGET.DREMPEL_PARTNER : KINDGEBONDEN_BUDGET.DREMPEL_ENKEL;
-  if (toetsInkomen <= drempel) return maxBedrag;
-  return Math.max(0, maxBedrag - (toetsInkomen - drempel) * KINDGEBONDEN_BUDGET.AFBOUW_PERC);
-};
-
-const berekenKinderopvangtoeslag = (toetsInkomen, opvangDetails, inflationFactor = 1) => {
-  if (!opvangDetails || opvangDetails.length === 0) return 0;
-  const schijf = KINDEROPVANG_SCHIJVEN.find(s => toetsInkomen >= s.van && toetsInkomen <= s.tot) || KINDEROPVANG_SCHIJVEN[KINDEROPVANG_SCHIJVEN.length - 1];
-  const { percEerste, percVolgend } = schijf;
-  const { MAX_UREN_MAAND, TYPES } = TOESLAGEN_2026.KINDEROPVANG;
-  
-  let totaal = 0;
-  const gesorteerd = [...opvangDetails].sort((a, b) => (b.uren || 0) - (a.uren || 0));
-  gesorteerd.forEach((opv, index) => {
-    const urenMaand = Math.min(opv.uren || 0, MAX_UREN_MAAND);
-    const urenJaar = urenMaand * 12;
-    const maxPrijs = TYPES[opv.type] || 0;
-    const perc = (index === 0) ? percEerste : percVolgend;
-    totaal += urenJaar * maxPrijs * perc * inflationFactor;
-  });
-  return Math.round(totaal);
-};
-
-const berekenKinderbijslag = (leeftijden, inflationFactor = 1) => {
-  if (!leeftijden || leeftijden.length === 0) return 0;
-  const { KINDERBIJSLAG } = TOESLAGEN_2026;
-  let totaalJaar = 0;
-  leeftijden.forEach((leeftijd) => {
-    let config = null;
-    if (leeftijd >= 0 && leeftijd <= 5) config = KINDERBIJSLAG.LEEFTIJD_0_5;
-    else if (leeftijd >= 6 && leeftijd <= 11) config = KINDERBIJSLAG.LEEFTIJD_6_11;
-    else if (leeftijd >= 12 && leeftijd <= 17) config = KINDERBIJSLAG.LEEFTIJD_12_17;
-    if (config) totaalJaar += config.kwartaal * 4 * inflationFactor;
-  });
-  return totaalJaar;
-};
-
-// Mortgage Calculation with Amortization
-const calculateMortgageYear = ({ outstandingAmount, interestRate, remainingMonths }, yearsSinceStart) => {
-  const monthlyRate = (interestRate / 100) / 12;
-  
-  if (!monthlyRate) {
-    // Interest-free: simple amortization
-    const monthlyPayment = outstandingAmount / remainingMonths;
-    return {
-      payment: monthlyPayment * 12,
-      interest: 0,
-      principal: monthlyPayment * 12,
-      remainingBalance: Math.max(0, outstandingAmount - (monthlyPayment * 12 * yearsSinceStart))
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    
+    // ============================================
+    // FINANCIAL ENGINE - INLINE VERSION
+    // ============================================
+    
+    // From assumptions.js
+    const defaultAssumptions = Object.freeze({
+      inflationRate: 2.0,
+      investmentReturn: 7.0,
+      safeWithdrawalRate: 4.0,
+      targetNetWorth: 1_500_000,
+    });
+    
+    // From helpers.js
+    const yearlyAmount = (amount, frequency) => {
+      if (typeof amount !== 'number' || isNaN(amount) || amount < 0) {
+        throw new Error('amount must be a non-negative number');
+      }
+      return frequency === 'monthly' ? amount * 12 : amount;
     };
-  }
-  
-  // Annuity calculation
-  const monthlyPayment = outstandingAmount * (monthlyRate / (1 - Math.pow(1 + monthlyRate, -remainingMonths)));
-  
-  // Calculate balance after yearsSinceStart years
-  let balance = outstandingAmount;
-  let totalInterest = 0;
-  
-  for (let month = 0; month < Math.min(yearsSinceStart * 12, remainingMonths); month++) {
-    const interest = balance * monthlyRate;
-    const principal = monthlyPayment - interest;
-    balance -= principal;
-    if (month >= (yearsSinceStart - 1) * 12 && month < yearsSinceStart * 12) {
-      totalInterest += interest;
-    }
-  }
-  
-  return {
-    payment: monthlyPayment * 12,
-    interest: totalInterest,
-    principal: monthlyPayment * 12 - totalInterest,
-    remainingBalance: Math.max(0, balance)
-  };
-};
+    
+    const isActiveInYear = (item, year) => {
+      if (!item || typeof item.startYear !== 'number') {
+        return false;
+      }
+      return (
+        year >= item.startYear &&
+        (!item.endYear || year <= item.endYear)
+      );
+    };
+    
+    const grow = (value, rate, years) => {
+      if (
+        typeof value !== 'number' || isNaN(value) || value < 0 ||
+        typeof rate !== 'number' || isNaN(rate) ||
+        typeof years !== 'number' || isNaN(years) || years < 0
+      ) {
+        throw new Error('value, rate and years must be valid numbers (value ≥ 0, years ≥ 0)');
+      }
+      const safeYears = Math.max(0, years); // Prevent negative years
+      const multiplier = Math.pow(1 + rate / 100, safeYears);
+      const result = value * multiplier;
+      return Number(result.toFixed(2));
+    };
+    
+    // From tax.js
+    const TAX_BRACKETS_2026 = [
+      { limit: 38883, rate: 35.75 },
+      { limit: 78426, rate: 37.56 },
+      { limit: Infinity, rate: 49.5 }
+    ];
+    
+    const TAX_CREDITS_2026 = Object.freeze({
+      algemeneMax: 3115,
+      algemeneAfbouwStart: 29739,
+      algemeneAfbouwPercentage: 6.398,
+      arbeidMax: 5685,
+      arbeidBuildRateLow: 8.324,
+      arbeidLowThreshold: 11965,
+      arbeidPhaseoutStart: 45592,
+      arbeidPhaseoutRate: 6.51
+    });
+    
+    // Toeslagen 2026 constanten
+    const TOESLAGEN_2026 = {
+      KINDGEBONDEN_BUDGET: {
+        PER_KIND: 2580,
+        DREMPEL_ENKEL: 29736,
+        DREMPEL_PARTNER: 39141,
+        AFBOUW_PERC: 0.076,
+        INFLATION_LAG: 1 // Toeslagen stijgen met 1 jaar vertraging
+      },
+      KINDERBIJSLAG: {
+        LEEFTIJD_0_5: { kwartaal: 295.07, perc: '70%' },
+        LEEFTIJD_6_11: { kwartaal: 358.30, perc: '85%' },
+        LEEFTIJD_12_17: { kwartaal: 421.53, perc: '100%' },
+        INFLATION_LAG: 1
+      },
+      KINDEROPVANG: {
+        MAX_UREN_MAAND: 230,
+        TYPES: {
+          dagopvang: 11.23,
+          bso: 9.98,
+          gastouder: 8.49
+        },
+        INFLATION_LAG: 1
+      }
+    };
 
-const mortgagePaymentAnnual = ({ outstandingAmount, interestRate, remainingMonths }) => {
-  return calculateMortgageYear({ outstandingAmount, interestRate, remainingMonths }, 1).payment;
-};
-
-// Main Cashflow Engine
-const calculateAnnualCashflow = (year, items, assumptions) => {
-  let grossIncome = 0;
-  let totalExpenses = 0;
-  let toeslagen = 0;
-  let hypotheekrenteAftrek = 0; // Track deductible mortgage interest
-
-  items.forEach(item => {
-    if (!isActiveInYear(item, year)) return;
-
-    // Housing (mortgage)
-    if (item.type === 'expense' && item.category === 'housing' && item.metadata?.mortgage) {
-      const mortgage = item.metadata.mortgage;
-      const yearsActive = Math.max(0, year - item.startYear);
-      const mortgageYear = calculateMortgageYear(mortgage, yearsActive + 1);
+    const KINDEROPVANG_SCHIJVEN = [
+      { van: 0, tot: 24149, percEerste: 0.960, percVolgend: 0.960 },
+      { van: 24150, tot: 25756, percEerste: 0.960, percVolgend: 0.960 },
+      { van: 25757, tot: 27363, percEerste: 0.960, percVolgend: 0.960 },
+      { van: 27364, tot: 28973, percEerste: 0.960, percVolgend: 0.960 },
+      { van: 28974, tot: 30579, percEerste: 0.960, percVolgend: 0.960 },
+      { van: 30580, tot: 32189, percEerste: 0.960, percVolgend: 0.960 },
+      { van: 32190, tot: 33795, percEerste: 0.960, percVolgend: 0.960 },
+      { van: 33796, tot: 35400, percEerste: 0.960, percVolgend: 0.960 },
+      { van: 35401, tot: 37129, percEerste: 0.960, percVolgend: 0.960 },
+      { van: 37130, tot: 38855, percEerste: 0.960, percVolgend: 0.960 },
+      { van: 38856, tot: 40586, percEerste: 0.960, percVolgend: 0.960 },
+      { van: 40587, tot: 42313, percEerste: 0.960, percVolgend: 0.960 },
+      { van: 42314, tot: 44046, percEerste: 0.960, percVolgend: 0.960 },
+      { van: 44047, tot: 45776, percEerste: 0.960, percVolgend: 0.960 },
+      { van: 45777, tot: 47546, percEerste: 0.960, percVolgend: 0.960 },
+      { van: 47547, tot: 49318, percEerste: 0.960, percVolgend: 0.960 },
+      { van: 49319, tot: 51092, percEerste: 0.960, percVolgend: 0.960 },
+      { van: 51093, tot: 52864, percEerste: 0.960, percVolgend: 0.960 },
+      { van: 52865, tot: 54641, percEerste: 0.960, percVolgend: 0.960 },
+      { van: 54642, tot: 56412, percEerste: 0.960, percVolgend: 0.960 },
+      { van: 56413, tot: 58184, percEerste: 0.955, percVolgend: 0.956 },
+      { van: 58185, tot: 59957, percEerste: 0.948, percVolgend: 0.956 },
+      { van: 59958, tot: 61895, percEerste: 0.939, percVolgend: 0.956 },
+      { van: 61896, tot: 65695, percEerste: 0.924, percVolgend: 0.956 },
+      { van: 65696, tot: 69492, percEerste: 0.916, percVolgend: 0.952 },
+      { van: 69493, tot: 73292, percEerste: 0.905, percVolgend: 0.946 },
+      { van: 73293, tot: 77094, percEerste: 0.882, percVolgend: 0.942 },
+      { van: 77095, tot: 80891, percEerste: 0.859, percVolgend: 0.939 },
+      { van: 80892, tot: 84693, percEerste: 0.837, percVolgend: 0.932 },
+      { van: 84694, tot: 88491, percEerste: 0.812, percVolgend: 0.927 },
+      { van: 88492, tot: 92291, percEerste: 0.789, percVolgend: 0.922 },
+      { van: 92292, tot: 96091, percEerste: 0.767, percVolgend: 0.915 },
+      { van: 96092, tot: 99889, percEerste: 0.743, percVolgend: 0.909 },
+      { van: 99890, tot: 103694, percEerste: 0.721, percVolgend: 0.905 },
+      { van: 103695, tot: 107492, percEerste: 0.696, percVolgend: 0.902 },
+      { van: 107493, tot: 111290, percEerste: 0.673, percVolgend: 0.895 },
+      { van: 111291, tot: 115090, percEerste: 0.651, percVolgend: 0.891 },
+      { van: 115091, tot: 118963, percEerste: 0.627, percVolgend: 0.886 },
+      { van: 118964, tot: 122857, percEerste: 0.606, percVolgend: 0.879 },
+      { van: 122858, tot: 126747, percEerste: 0.585, percVolgend: 0.874 },
+      { van: 126748, tot: 130638, percEerste: 0.564, percVolgend: 0.870 },
+      { van: 130639, tot: 134527, percEerste: 0.542, percVolgend: 0.867 },
+      { van: 134528, tot: 138420, percEerste: 0.523, percVolgend: 0.860 },
+      { van: 138421, tot: 142312, percEerste: 0.504, percVolgend: 0.854 },
+      { van: 142313, tot: 146205, percEerste: 0.485, percVolgend: 0.850 },
+      { van: 146206, tot: 150092, percEerste: 0.465, percVolgend: 0.844 },
+      { van: 150093, tot: 153982, percEerste: 0.445, percVolgend: 0.840 },
+      { van: 153983, tot: 157877, percEerste: 0.425, percVolgend: 0.833 },
+      { van: 157878, tot: 161766, percEerste: 0.405, percVolgend: 0.827 },
+      { van: 161767, tot: 165657, percEerste: 0.385, percVolgend: 0.817 },
+      { van: 165658, tot: 169547, percEerste: 0.365, percVolgend: 0.814 },
+      { van: 169548, tot: 173440, percEerste: 0.365, percVolgend: 0.806 },
+      { van: 173441, tot: 177335, percEerste: 0.365, percVolgend: 0.797 },
+      { van: 177336, tot: 181223, percEerste: 0.365, percVolgend: 0.791 },
+      { van: 181224, tot: 185114, percEerste: 0.365, percVolgend: 0.782 },
+      { van: 185115, tot: 189002, percEerste: 0.365, percVolgend: 0.777 },
+      { van: 189003, tot: 192896, percEerste: 0.365, percVolgend: 0.769 },
+      { van: 192897, tot: 196789, percEerste: 0.365, percVolgend: 0.762 },
+      { van: 196790, tot: 200681, percEerste: 0.365, percVolgend: 0.755 },
+      { van: 200682, tot: 204571, percEerste: 0.365, percVolgend: 0.745 },
+      { van: 204572, tot: 208458, percEerste: 0.365, percVolgend: 0.740 },
+      { van: 208459, tot: 212353, percEerste: 0.365, percVolgend: 0.733 },
+      { van: 212354, tot: 216242, percEerste: 0.365, percVolgend: 0.725 },
+      { van: 216243, tot: 220134, percEerste: 0.365, percVolgend: 0.718 },
+      { van: 220135, tot: 224026, percEerste: 0.365, percVolgend: 0.712 },
+      { van: 224027, tot: 227915, percEerste: 0.365, percVolgend: 0.704 },
+      { van: 227916, tot: 231807, percEerste: 0.365, percVolgend: 0.696 },
+      { van: 231808, tot: 235697, percEerste: 0.365, percVolgend: 0.691 },
+      { van: 235698, tot: Infinity, percEerste: 0.365, percVolgend: 0.682 }
+    ];
+    
+    const calculateDutchTax2026 = (grossIncome) => {
+      if (typeof grossIncome !== 'number' || grossIncome < 0) {
+        throw new Error('grossIncome must be a non-negative number');
+      }
       
-      totalExpenses += mortgageYear.payment;
-      hypotheekrenteAftrek += mortgageYear.interest; // Only interest is deductible
-      return;
-    }
-
-    // Kinderopvangtoeslag
-    if (item.category === 'childcare' && item.metadata?.kinderen) {
-      // Will be calculated after netIncome is known
-      return;
-    }
-
-    // Kinderbijslag - will be calculated with inflation in second loop
-    if (item.category === 'child-benefit' && item.metadata?.kinderenLeeftijden) {
-      return; // Calculate after with inflation
-    }
-
-    // Kindgebonden budget
-    if (item.category === 'child-budget' && item.metadata) {
-      // Will be calculated after netIncome is known
-      return;
-    }
-
-    const base = yearlyAmount(item.amount, item.frequency);
-
-    if (item.type === 'income') {
-      const yearsActive = Math.max(0, year - item.startYear);
-      const grown = grow(base, item.growthRate || 0, yearsActive);
-      grossIncome += grown;
-    }
-
-    if (item.type === 'expense') {
-      const yearsActive = Math.max(0, year - item.startYear);
-      const adjusted = item.adjustForInflation
-        ? grow(base, assumptions.inflationRate || 0, yearsActive)
-        : base;
-      totalExpenses += adjusted;
-    }
-  });
-
-  // Apply mortgage interest deduction to taxable income (Box 1 deduction)
-  const taxableIncome = Math.max(0, grossIncome - hypotheekrenteAftrek);
-  const taxResult = calculateDutchTax2026(taxableIncome);
-  const netIncome = grossIncome - taxResult.netTax; // Net = gross - tax (on reduced taxable income)
-
-  // Now calculate income-dependent toeslagen (based on net income)
-  items.forEach(item => {
-    if (!isActiveInYear(item, year)) return;
+      let tax = 0;
+      let remaining = grossIncome;
+      let previousLimit = 0;
+      
+      for (const bracket of TAX_BRACKETS_2026) {
+        const bracketSize = Math.min(remaining, bracket.limit - previousLimit);
+        if (bracketSize <= 0) break;
+        
+        tax += bracketSize * (bracket.rate / 100);
+        remaining -= bracketSize;
+        previousLimit = bracket.limit;
+        
+        if (remaining <= 0) break;
+      }
+      
+      let algemene = TAX_CREDITS_2026.algemeneMax;
+      if (grossIncome > TAX_CREDITS_2026.algemeneAfbouwStart) {
+        const excess = grossIncome - TAX_CREDITS_2026.algemeneAfbouwStart;
+        algemene -= excess * (TAX_CREDITS_2026.algemeneAfbouwPercentage / 100);
+        algemene = Math.max(0, algemene);
+      }
+      
+      let arbeid = 0;
+      if (grossIncome <= TAX_CREDITS_2026.arbeidLowThreshold) {
+        arbeid = grossIncome * (TAX_CREDITS_2026.arbeidBuildRateLow / 100);
+      } else {
+        arbeid = TAX_CREDITS_2026.arbeidMax;
+        if (grossIncome > TAX_CREDITS_2026.arbeidPhaseoutStart) {
+          const excess = grossIncome - TAX_CREDITS_2026.arbeidPhaseoutStart;
+          arbeid -= excess * (TAX_CREDITS_2026.arbeidPhaseoutRate / 100);
+          arbeid = Math.max(0, arbeid);
+        }
+      }
+      
+      const totalCredits = algemene + arbeid;
+      const netTax = Math.max(0, tax - totalCredits);
+      const netIncome = grossIncome - netTax;
+      
+      return {
+        grossIncome,
+        incomeTax: Number(tax.toFixed(2)),
+        credits: Number(totalCredits.toFixed(2)),
+        netTax: Number(netTax.toFixed(2)),
+        netIncome: Number(netIncome.toFixed(2)),
+        effectiveRate: grossIncome > 0 ? Number(((netTax / grossIncome) * 100).toFixed(2)) : 0
+      };
+    };
     
-    // Calculate inflation factor for toeslagen (delayed by 1 year)
-    const yearsActive = Math.max(0, year - item.startYear);
-    const inflationYears = Math.max(0, yearsActive - 1); // 1 year lag
-    const inflationFactor = Math.pow(1 + (assumptions.inflationRate || 0) / 100, inflationYears);
+    // Bereken kindgebonden budget (netto toeslag)
+    const berekenKindgebondenBudget = (toetsInkomen, aantalKinderen, fiscaalPartner, inflationFactor = 1) => {
+      if (aantalKinderen === 0) return 0;
+      
+      const { KINDGEBONDEN_BUDGET } = TOESLAGEN_2026;
+      const maxBedrag = KINDGEBONDEN_BUDGET.PER_KIND * aantalKinderen * inflationFactor;
+      const drempel = fiscaalPartner ? KINDGEBONDEN_BUDGET.DREMPEL_PARTNER : KINDGEBONDEN_BUDGET.DREMPEL_ENKEL;
+      
+      if (toetsInkomen <= drempel) return maxBedrag;
+      
+      const vermindering = (toetsInkomen - drempel) * KINDGEBONDEN_BUDGET.AFBOUW_PERC;
+      return Math.max(0, maxBedrag - vermindering);
+    };
     
-    if (item.category === 'childcare' && item.metadata?.kinderen) {
-      toeslagen += berekenKinderopvangtoeslag(netIncome, item.metadata.kinderen, inflationFactor);
-    }
+    // Bereken kinderopvangtoeslag (netto toeslag)
+    const berekenKinderopvangtoeslag = (toetsInkomen, opvangDetails, inflationFactor = 1) => {
+      if (!opvangDetails || opvangDetails.length === 0) return 0;
+      
+      const schijf = KINDEROPVANG_SCHIJVEN.find(s => 
+        toetsInkomen >= s.van && toetsInkomen <= s.tot
+      ) || KINDEROPVANG_SCHIJVEN[KINDEROPVANG_SCHIJVEN.length - 1];
+      
+      const { percEerste, percVolgend } = schijf;
+      const { MAX_UREN_MAAND, TYPES } = TOESLAGEN_2026.KINDEROPVANG;
+      
+      let totaal = 0;
+      const gesorteerd = [...opvangDetails].sort((a, b) => (b.uren || 0) - (a.uren || 0));
+      
+      gesorteerd.forEach((opv, index) => {
+        const urenMaand = Math.min(opv.uren || 0, MAX_UREN_MAAND);
+        const urenJaar = urenMaand * 12;
+        const maxPrijs = TYPES[opv.type] || 0;
+        const perc = (index === 0) ? percEerste : percVolgend;
+        totaal += urenJaar * maxPrijs * perc * inflationFactor;
+      });
+      
+      return Math.round(totaal);
+    };
     
-    if (item.category === 'child-budget' && item.metadata) {
-      toeslagen += berekenKindgebondenBudget(
-        netIncome,
-        item.metadata.aantalKinderen || 0,
-        item.metadata.fiscaalPartner || false,
-        inflationFactor
+    // Bereken kinderbijslag (netto toeslag)
+    const berekenKinderbijslag = (leeftijden, inflationFactor = 1) => {
+      if (!leeftijden || leeftijden.length === 0) return 0;
+      
+      const { KINDERBIJSLAG } = TOESLAGEN_2026;
+      let totaalJaar = 0;
+      
+      leeftijden.forEach((leeftijd) => {
+        let config = null;
+        
+        if (leeftijd >= 0 && leeftijd <= 5) config = KINDERBIJSLAG.LEEFTIJD_0_5;
+        else if (leeftijd >= 6 && leeftijd <= 11) config = KINDERBIJSLAG.LEEFTIJD_6_11;
+        else if (leeftijd >= 12 && leeftijd <= 17) config = KINDERBIJSLAG.LEEFTIJD_12_17;
+        
+        if (config) {
+          totaalJaar += config.kwartaal * 4 * inflationFactor;
+        }
+      });
+      
+      return totaalJaar;
+    };
+    
+    // From cashflow.js
+    const calculateAnnualCashflow = (year, incomes, expenses, assumptions = {}) => {
+      if (typeof year !== 'number' || year < 1900) {
+        throw new Error('Invalid year');
+      }
+      
+      const inflationRate = assumptions.inflationRate ?? 0;
+      
+      let totalGrossIncome = 0;
+      
+      for (const income of incomes) {
+        if (!isActiveInYear(income, year)) continue;
+        
+        const baseYearly = yearlyAmount(income.amount, income.frequency);
+        const yearsActive = Math.max(0, year - income.startYear); // Safety: prevent negative
+        const grown = grow(baseYearly, income.growthRate ?? 0, yearsActive);
+        
+        totalGrossIncome += grown;
+      }
+      
+      const taxResult = calculateDutchTax2026(totalGrossIncome);
+      const netIncome = taxResult.netIncome;
+      
+      let totalExpenses = 0;
+      
+      for (const expense of expenses) {
+        if (!isActiveInYear(expense, year)) continue;
+        
+        const baseYearly = yearlyAmount(expense.amount, expense.frequency);
+        const yearsActive = Math.max(0, year - expense.startYear); // Safety: prevent negative
+        
+        const adjusted = expense.adjustForInflation
+          ? grow(baseYearly, inflationRate, yearsActive)
+          : baseYearly;
+        
+        totalExpenses += adjusted;
+      }
+      
+      // Bereken toeslagen (netto, niet belastbaar)
+      let toeslagenTotaal = 0;
+      
+      // Verzamelinkomen = netto inkomen voor toeslagenberekening
+      const toetsInkomen = netIncome;
+      
+      for (const income of incomes) {
+        if (!isActiveInYear(income, year)) continue;
+        
+        // Calculate inflation factor for toeslagen (delayed by 1 year)
+        const yearsActive = Math.max(0, year - income.startYear);
+        const inflationYears = Math.max(0, yearsActive - 1); // 1 year lag
+        const inflationFactor = Math.pow(1 + inflationRate / 100, inflationYears);
+        
+        // Kinderopvangtoeslag
+        if (income.category === 'childcare' && income.metadata?.kinderen) {
+          toeslagenTotaal += berekenKinderopvangtoeslag(toetsInkomen, income.metadata.kinderen, inflationFactor);
+        }
+        
+        // Kinderbijslag
+        if (income.category === 'child-benefit' && income.metadata?.kinderenLeeftijden) {
+          toeslagenTotaal += berekenKinderbijslag(income.metadata.kinderenLeeftijden, inflationFactor);
+        }
+        
+        // Kindgebonden budget
+        if (income.category === 'child-budget' && income.metadata?.aantalKinderen) {
+          toeslagenTotaal += berekenKindgebondenBudget(
+            toetsInkomen, 
+            income.metadata.aantalKinderen, 
+            income.metadata.fiscaalPartner || false,
+            inflationFactor
+          );
+        }
+      }
+      
+      // Correct savings calculation: add toeslagen to available income
+      const totalAvailable = netIncome + toeslagenTotaal;
+      const netSavings = totalAvailable - totalExpenses;
+      
+      return {
+        year: Number(year),
+        grossIncome: Number(totalGrossIncome.toFixed(2)),
+        netIncome: Number(netIncome.toFixed(2)),
+        expenses: Number(totalExpenses.toFixed(2)),
+        savings: Number(netSavings.toFixed(2)), // Now includes toeslagen benefit
+        toeslagen: Number(toeslagenTotaal.toFixed(2)),
+        effectiveTaxRate: taxResult.effectiveRate
+      };
+    };
+    
+    // From kpis.js
+    const projectNetWorth = ({
+      startYear,
+      endYear,
+      startNetWorth = 0,
+      incomes = [],
+      expenses = [],
+      assumptions = {}
+    }) => {
+      if (startYear > endYear) {
+        throw new Error('startYear must be <= endYear');
+      }
+      if (typeof startNetWorth !== 'number' || startNetWorth < 0) {
+        throw new Error('startNetWorth must be a non-negative number');
+      }
+      
+      const investmentRate = (assumptions.investmentReturn ?? 0) / 100;
+      
+      let netWorth = startNetWorth;
+      const timeline = [];
+      
+      for (let year = startYear; year <= endYear; year++) {
+        const cashflow = calculateAnnualCashflow(year, incomes, expenses, assumptions);
+        
+        netWorth *= (1 + investmentRate);
+        netWorth += cashflow.savings; // Toeslagen already included in savings
+        netWorth = Number(netWorth.toFixed(2));
+        
+        timeline.push({
+          year,
+          netWorth,
+          cashflow,
+          savingsRate: cashflow.netIncome > 0
+            ? Number((cashflow.savings / cashflow.netIncome * 100).toFixed(2))
+            : null
+        });
+      }
+      
+      return timeline;
+    };
+    
+    const findFireYear = (timeline, targetNetWorth) => {
+      if (!Array.isArray(timeline) || typeof targetNetWorth !== 'number') return null;
+      
+      const hit = timeline.find(entry => entry.netWorth >= targetNetWorth);
+      return hit ? hit.year : null;
+    };
+    
+    const monthlySavingsFromCashflow = (cashflow) => {
+      if (!cashflow || typeof cashflow.savings !== 'number') return 0;
+      return Number((cashflow.savings / 12).toFixed(2));
+    };
+    
+    // ============================================
+    // UI COMPONENTS
+    // ============================================
+    
+    const formatCurrency = (value) => {
+      return new Intl.NumberFormat('nl-NL', {
+        style: 'currency',
+        currency: 'EUR',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(value);
+    };
+
+    function ItemList({ items, type, onEdit, onDelete }) {
+      if (items.length === 0) {
+        return (
+          <div className="text-sm text-gray-400 italic py-2">
+            Nog geen items toegevoegd
+          </div>
+        );
+      }
+      
+      const categoryEmoji = {
+        // Expense categories
+        housing: '🏠',
+        recurring: '🔄',
+        children: '👶',
+        other: '🛒',
+        // Income categories
+        salary: '💼',
+        childcare: '👶',
+        'child-benefit': '🍼',
+        'child-budget': '👨‍👩‍👧',
+        'other-income': '💰'
+      };
+      
+      return (
+        <div className="space-y-2">
+          {items.map(item => (
+            <div 
+              key={item.id}
+              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <div className="flex-1 cursor-pointer" onClick={() => onEdit(type, item)}>
+                <div className="font-medium text-sm flex items-center gap-1">
+                  {item.category && categoryEmoji[item.category]}
+                  {item.name}
+                  {item.category === 'childcare' && item.metadata?.kinderen?.length > 0 && (
+                    <span className="text-xs text-gray-500 ml-1">
+                      ({item.metadata.kinderen.length} {item.metadata.kinderen.length === 1 ? 'kind' : 'kinderen'})
+                    </span>
+                  )}
+                  {item.category === 'child-benefit' && item.metadata?.kinderenLeeftijden?.length > 0 && (
+                    <span className="text-xs text-gray-500 ml-1">
+                      ({item.metadata.kinderenLeeftijden.length} {item.metadata.kinderenLeeftijden.length === 1 ? 'kind' : 'kinderen'})
+                    </span>
+                  )}
+                  {item.category === 'child-budget' && item.metadata?.aantalKinderen > 0 && (
+                    <span className="text-xs text-gray-500 ml-1">
+                      ({item.metadata.aantalKinderen} {item.metadata.aantalKinderen === 1 ? 'kind' : 'kinderen'})
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-gray-600">
+                  {['childcare', 'child-benefit', 'child-budget'].includes(item.category) ? (
+                    <span className="italic text-green-600">Automatisch berekend o.b.v. verzamelinkomen</span>
+                  ) : (
+                    <>
+                      {formatCurrency(item.amount)} / {item.frequency === 'monthly' ? 'maand' : 'jaar'}
+                      {type === 'income' && item.growthRate > 0 && ` • ${item.growthRate}% groei`}
+                    </>
+                  )}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {item.endYear ? `${item.startYear} - ${item.endYear}` : `Vanaf ${item.startYear}`}
+                </div>
+              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(type, item.id);
+                }}
+                className="ml-2 text-red-500 hover:text-red-700 text-sm"
+              >
+                🗑️
+              </button>
+            </div>
+          ))}
+        </div>
       );
     }
-    
-    if (item.category === 'child-benefit' && item.metadata?.kinderenLeeftijden) {
-      toeslagen += berekenKinderbijslag(item.metadata.kinderenLeeftijden, inflationFactor);
-    }
-  });
 
-  const totalAvailable = netIncome + toeslagen; // Total after-tax income including allowances
-  const netSavings = totalAvailable - totalExpenses; // Actual savings
-
-  return {
-    year,
-    grossIncome,
-    taxableIncome, // Gross minus mortgage interest deduction
-    netIncome,
-    expenses: totalExpenses,
-    savings: netSavings, // This includes the benefit of toeslagen
-    toeslagen,
-    hypotheekrenteAftrek,
-    effectiveTaxRate: taxableIncome > 0 ? (taxResult.netTax / grossIncome * 100) : 0
-  };
-};
-
-// Projections Builder
-const buildProjections = ({ startYear, years, startNetWorth, items, assumptions, targetNetWorth }) => {
-  const investmentRate = (assumptions.investmentReturn || 7) / 100;
-  let netWorth = startNetWorth;
-  const timeline = [];
-
-  for (let i = 0; i < years; i++) {
-    const year = startYear + i;
-    const cashflow = calculateAnnualCashflow(year, items, assumptions);
-    
-    netWorth *= (1 + investmentRate);
-    netWorth += cashflow.savings; // Toeslagen zitten al in savings (via netIncome)
-    
-    timeline.push({
-      year,
-      netWorth: Math.round(netWorth),
-      cashflow
-    });
-  }
-
-  const fireEntry = timeline.find(e => e.netWorth >= targetNetWorth);
-  const fireYear = fireEntry ? fireEntry.year : null;
-  const monthlySavings = timeline[0] ? timeline[0].cashflow.savings / 12 : 0; // savings bevat al toeslagen
-
-  return { timeline, fireYear, yearsToFire: fireYear ? fireYear - startYear : null, monthlySavings };
-};
-
-// UI Helpers
-const formatCurrency = (value) => `€${Math.round(value).toLocaleString('nl-NL')}`;
-
-// Calculate display amounts for items
-const getItemDisplayAmount = (item, assumptions = {}) => {
-  if (item.category === 'housing' && item.metadata?.mortgage) {
-    return formatCurrency(mortgagePaymentAnnual(item.metadata.mortgage));
-  }
-  
-  if (item.category === 'child-benefit' && item.metadata?.kinderenLeeftijden) {
-    return formatCurrency(berekenKinderbijslag(item.metadata.kinderenLeeftijden));
-  }
-  
-  if (item.category === 'childcare' && item.metadata?.kinderen) {
-    // Estimate with avg income of 40k net
-    return formatCurrency(berekenKinderopvangtoeslag(40000, item.metadata.kinderen));
-  }
-  
-  if (item.category === 'child-budget' && item.metadata) {
-    // Estimate with avg income of 40k net
-    return formatCurrency(berekenKindgebondenBudget(40000, item.metadata.aantalKinderen || 0, item.metadata.fiscaalPartner || false));
-  }
-  
-  if (item.amount) {
-    const yearly = yearlyAmount(item.amount, item.frequency);
-    return formatCurrency(yearly);
-  }
-  
-  return 'Automatisch';
-};
-
-/* ================================
-   REACT COMPONENTS
-   ================================ */
-
-function KPICard({ label, value, icon = "📊" }) {
-  return (
-    <div className="bg-white p-4 rounded-lg shadow">
-      <div className="text-sm text-gray-600 mb-1">{icon} {label}</div>
-      <div className="text-2xl font-bold text-primary">{value}</div>
-    </div>
-  );
-}
-
-function SimpleEditDialog({ item, onSave, onCancel }) {
-  const [formData, setFormData] = useState(item || {});
-  
-  if (!item) return null;
-  
-  const updateField = (field, value) => {
-    const updated = { ...formData, [field]: value };
-    
-    // Auto-initialize metadata when category changes
-    if (field === 'category') {
-      if (value === 'housing' && !updated.metadata?.mortgage) {
-        updated.metadata = {
-          mortgage: { outstandingAmount: 300000, interestRate: 4, remainingMonths: 360 }
-        };
-      } else if (value === 'child-benefit' && !updated.metadata?.kinderenLeeftijden) {
-        updated.metadata = { kinderenLeeftijden: [] };
-      } else if (value === 'childcare' && !updated.metadata?.kinderen) {
-        updated.metadata = { kinderen: [] };
-      } else if (value === 'child-budget' && !updated.metadata?.aantalKinderen) {
-        updated.metadata = { aantalKinderen: 0, fiscaalPartner: false };
-      }
-    }
-    
-    setFormData(updated);
-  };
-  
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSave(formData);
-  };
-  
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <form onSubmit={handleSubmit}>
-          <div className="p-6 border-b">
-            <h2 className="text-xl font-semibold">
-              {formData.id ? 'Bewerk' : 'Nieuw'} {formData.type === 'income' ? 'Inkomen' : 'Uitgave'}
-            </h2>
-          </div>
+    function EditDialog({ isOpen, type, item, onSave, onCancel }) {
+      const [formData, setFormData] = useState(item || {});
+      
+      useEffect(() => {
+        setFormData(item || {});
+      }, [item]);
+      
+      if (!isOpen) return null;
+      
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        onSave(formData);
+      };
+      
+      const updateField = (field, value) => {
+        setFormData({ ...formData, [field]: value });
+      };
+      
+      const getTaxBreakdown = () => {
+        if (type !== 'income') return null;
+        const yearly = yearlyAmount(formData.amount || 0, formData.frequency || 'yearly');
+        
+        let remaining = yearly;
+        let previousLimit = 0;
+        const breakdown = [];
+        
+        for (const bracket of TAX_BRACKETS_2026) {
+          const bracketSize = Math.min(remaining, bracket.limit - previousLimit);
+          if (bracketSize <= 0) break;
           
-          <div className="p-6 space-y-4">
-            {/* Name */}
-            <div>
-              <label className="block text-sm font-medium mb-1">Naam</label>
-              <input
-                type="text"
-                value={formData.name || ''}
-                onChange={(e) => updateField('name', e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg"
-                required
-              />
-            </div>
-            
-            {/* Category */}
-            <div>
-              <label className="block text-sm font-medium mb-1">Categorie</label>
-              <select
-                value={formData.category || (formData.type === 'income' ? 'salary' : 'other')}
-                onChange={(e) => updateField('category', e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg"
-              >
-                {formData.type === 'income' ? (
-                  <>
-                    <option value="salary">💼 Salaris</option>
-                    <option value="child-benefit">🍼 Kinderbijslag</option>
-                    <option value="childcare">👶 Kinderopvangtoeslag</option>
-                    <option value="child-budget">👨‍👩‍👧 Kindgebonden budget</option>
-                    <option value="other-income">💰 Overig inkomen</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="housing">🏠 Wonen (hypotheek)</option>
-                    <option value="other">🛒 Overige uitgaven</option>
-                  </>
-                )}
-              </select>
-            </div>
-            
-            {/* Amount (not for special categories) */}
-            {!['housing', 'child-benefit', 'childcare', 'child-budget'].includes(formData.category) && (
-              <>
+          breakdown.push({
+            from: previousLimit,
+            to: bracket.limit === Infinity ? '∞' : bracket.limit,
+            rate: bracket.rate,
+            amount: bracketSize,
+          });
+          
+          remaining -= bracketSize;
+          previousLimit = bracket.limit;
+          
+          if (remaining <= 0) break;
+        }
+        
+        return breakdown;
+      };
+      
+      const getEffectiveTaxRate = () => {
+        if (type !== 'income') return 0;
+        const yearly = yearlyAmount(formData.amount || 0, formData.frequency || 'yearly');
+        const taxResult = calculateDutchTax2026(yearly);
+        return taxResult.effectiveRate;
+      };
+      
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <form onSubmit={handleSubmit}>
+              <div className="p-6 border-b">
+                <h2 className="text-xl font-bold text-dark">
+                  {type === 'income' ? '💰 Inkomen bewerken' : '🛒 Uitgave bewerken'}
+                </h2>
+              </div>
+              
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Naam</label>
+                  <input
+                    type="text"
+                    value={formData.name || ''}
+                    onChange={(e) => updateField('name', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Start</label>
+                  <input
+                    type="number"
+                    value={formData.startYear || new Date().getFullYear()}
+                    onChange={(e) => updateField('startYear', parseInt(e.target.value) || new Date().getFullYear())}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    required
+                    min="2000"
+                    max={new Date().getFullYear() + 70}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Einde</label>
+                  <select
+                    value={formData.endYear || ''}
+                    onChange={(e) => updateField('endYear', e.target.value ? parseInt(e.target.value) : null)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  >
+                    <option value="">Doorlopend</option>
+                    {Array.from({ length: 50 }, (_, i) => new Date().getFullYear() + i).map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div className="pt-2">
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Details</h3>
+                </div>
+                
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium mb-1">Bedrag (€)</label>
-                    <input
-                      type="number"
-                      value={formData.amount || 0}
-                      onChange={(e) => updateField('amount', parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border rounded-lg"
-                      min="0"
-                      step="0.01"
-                    />
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Bedrag {type === 'income' ? '(bruto)' : ''}
+                    </label>
+                    {['childcare', 'child-benefit', 'child-budget'].includes(formData.category) ? (
+                      <div className="bg-gray-100 px-4 py-3 rounded-lg border border-gray-300">
+                        <p className="text-sm text-gray-600 italic">
+                          Wordt automatisch berekend op basis van verzamelinkomen en ingevoerde details
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent">
+                        <span className="px-3 py-2 text-gray-500 bg-gray-50 border-r">€</span>
+                        <input
+                          type="number"
+                          value={formData.amount || 0}
+                          onChange={(e) => updateField('amount', parseFloat(e.target.value) || 0)}
+                          className="flex-1 px-3 py-2 border-0 focus:ring-0"
+                          required
+                          min="0"
+                          step="0.01"
+                        />
+                      </div>
+                    )}
                   </div>
                   
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Frequentie</label>
-                    <select
-                      value={formData.frequency || 'yearly'}
-                      onChange={(e) => updateField('frequency', e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg"
-                    >
-                      <option value="monthly">Per maand</option>
-                      <option value="yearly">Per jaar</option>
-                    </select>
-                  </div>
+                  {!['childcare', 'child-benefit', 'child-budget'].includes(formData.category) && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Frequentie</label>
+                      <select
+                        value={formData.frequency || 'yearly'}
+                        onChange={(e) => updateField('frequency', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      >
+                        <option value="yearly">Per jaar</option>
+                        <option value="monthly">Per maand</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
                 
-                {formData.type === 'income' && (
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Groei per jaar (%)</label>
-                    <input
-                      type="number"
-                      value={formData.growthRate || 0}
-                      onChange={(e) => updateField('growthRate', parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border rounded-lg"
-                      min="0"
-                      max="100"
-                      step="0.1"
-                    />
-                  </div>
-                )}
-                
-                {formData.type === 'expense' && (
-                  <div className="flex items-center gap-2">
+                {type === 'expense' && formData.category !== 'housing' && (
+                  <div className="flex items-center gap-2 pt-2">
                     <input
                       type="checkbox"
+                      id="adjustInflation"
                       checked={formData.adjustForInflation || false}
                       onChange={(e) => updateField('adjustForInflation', e.target.checked)}
-                      className="w-4 h-4"
+                      className="w-5 h-5 text-primary border-gray-300 rounded focus:ring-primary"
                     />
-                    <label className="text-sm">Pas aan voor inflatie</label>
+                    <label htmlFor="adjustInflation" className="text-sm text-gray-700">
+                      Pas aan voor inflatie in de tijd
+                    </label>
                   </div>
                 )}
-              </>
-            )}
-            
-            {/* Hypotheek specifiek */}
-            {formData.category === 'housing' && (
-              <div className="bg-blue-50 p-4 rounded-lg space-y-3">
-                <h3 className="font-semibold">Hypotheek details</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs mb-1">Restschuld (€)</label>
-                    <input
-                      type="number"
-                      value={formData.metadata?.mortgage?.outstandingAmount || 0}
-                      onChange={(e) => updateField('metadata', {
-                        ...formData.metadata,
-                        mortgage: { ...formData.metadata?.mortgage, outstandingAmount: parseFloat(e.target.value) || 0 }
-                      })}
-                      className="w-full px-2 py-1 border rounded text-sm"
-                      min="0"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs mb-1">Rente (%)</label>
-                    <input
-                      type="number"
-                      value={formData.metadata?.mortgage?.interestRate || 0}
-                      onChange={(e) => updateField('metadata', {
-                        ...formData.metadata,
-                        mortgage: { ...formData.metadata?.mortgage, interestRate: parseFloat(e.target.value) || 0 }
-                      })}
-                      className="w-full px-2 py-1 border rounded text-sm"
-                      min="0"
-                      step="0.1"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs mb-1">Looptijd (maanden)</label>
-                    <input
-                      type="number"
-                      value={formData.metadata?.mortgage?.remainingMonths || 360}
-                      onChange={(e) => updateField('metadata', {
-                        ...formData.metadata,
-                        mortgage: { ...formData.metadata?.mortgage, remainingMonths: parseInt(e.target.value) || 360 }
-                      })}
-                      className="w-full px-2 py-1 border rounded text-sm"
-                      min="1"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {/* Kinderbijslag specifiek */}
-            {formData.category === 'child-benefit' && (
-              <div className="bg-purple-50 p-4 rounded-lg space-y-3">
-                <h3 className="font-semibold">Kinderbijslag - Leeftijden kinderen</h3>
-                <p className="text-xs text-gray-600">Voeg kinderen toe (0-17 jaar)</p>
-                <div className="space-y-2">
-                  {(formData.metadata?.kinderenLeeftijden || []).map((leeftijd, i) => (
-                    <div key={i} className="flex gap-2 items-center">
-                      <input
-                        type="number"
-                        value={leeftijd}
-                        onChange={(e) => {
-                          const newLeeftijden = [...(formData.metadata?.kinderenLeeftijden || [])];
-                          newLeeftijden[i] = parseInt(e.target.value) || 0;
-                          updateField('metadata', { ...formData.metadata, kinderenLeeftijden: newLeeftijden });
-                        }}
-                        className="flex-1 px-2 py-1 border rounded text-sm"
-                        min="0"
-                        max="17"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newLeeftijden = [...(formData.metadata?.kinderenLeeftijden || [])];
-                          newLeeftijden.splice(i, 1);
-                          updateField('metadata', { ...formData.metadata, kinderenLeeftijden: newLeeftijden });
-                        }}
-                        className="px-2 py-1 bg-red-100 text-red-700 rounded text-sm"
-                      >
-                        Verwijder
-                      </button>
+                
+                {type === 'income' && !['childcare', 'child-benefit', 'child-budget'].includes(formData.category) && (
+                  <>
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-sm font-medium text-gray-700">
+                          Belastingtarief (schijven 2026)
+                        </label>
+                      </div>
+                      
+                      <div className="border border-gray-300 rounded-lg p-4 bg-gray-50 space-y-3">
+                        <div className="text-xs text-gray-600 mb-2">
+                          Nederlandse belastingschijven inclusief heffingskortingen
+                        </div>
+                        
+                        {getTaxBreakdown()?.map((bracket, index) => (
+                          <div key={index} className="grid grid-cols-2 gap-2 text-sm">
+                            <div className="text-gray-600">
+                              Tot {bracket.to === '∞' ? '∞' : formatCurrency(bracket.to)}
+                            </div>
+                            <div className="text-gray-900 font-medium">
+                              {bracket.rate.toFixed(2)}%
+                            </div>
+                          </div>
+                        ))}
+                        
+                        <div className="pt-2 border-t">
+                          <div className="text-xs text-gray-600 font-medium mb-1">
+                            Effectief tarief (na kortingen):
+                          </div>
+                          <div className="text-sm font-bold text-primary">
+                            {getEffectiveTaxRate().toFixed(2)}%
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const newLeeftijden = [...(formData.metadata?.kinderenLeeftijden || []), 0];
-                    updateField('metadata', { ...formData.metadata, kinderenLeeftijden: newLeeftijden });
-                  }}
-                  className="px-3 py-1 bg-purple-600 text-white rounded text-sm"
-                >
-                  + Kind toevoegen
-                </button>
-              </div>
-            )}
-            
-            {/* Kinderopvangtoeslag specifiek */}
-            {formData.category === 'childcare' && (
-              <div className="bg-teal-50 p-4 rounded-lg space-y-3">
-                <h3 className="font-semibold">Kinderopvangtoeslag - Kinderen details</h3>
-                <p className="text-xs text-gray-600">Voeg kinderen toe met uren per maand en type opvang</p>
-                <div className="space-y-2">
-                  {(formData.metadata?.kinderen || []).map((kind, i) => (
-                    <div key={i} className="bg-white p-2 rounded border space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">Kind {i + 1}</span>
+                    
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 mb-1 block">
+                        Groeipercentage (% p.j.)
+                      </label>
+                      <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent">
+                        <input
+                          type="number"
+                          value={formData.growthRate || 0}
+                          onChange={(e) => updateField('growthRate', parseFloat(e.target.value) || 0)}
+                          className="flex-1 px-3 py-2 border-0 focus:ring-0"
+                          min="0"
+                          max="100"
+                          step="0.1"
+                        />
+                        <span className="px-3 py-2 text-gray-500 bg-gray-100 border-l">%</span>
+                      </div>
+                    </div>
+                  </>
+                )}
+                
+                {type === 'income' && formData.category === 'childcare' && (
+                  <div className="bg-teal-50 p-4 rounded-lg space-y-3">
+                    <h4 className="font-semibold text-gray-800">Kinderopvang details</h4>
+                    <p className="text-xs text-gray-600">Voeg kinderen toe met uren per maand en type opvang</p>
+                    
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const kinderen = formData.metadata?.kinderen || [];
+                        updateField('metadata', {
+                          ...formData.metadata,
+                          kinderen: [...kinderen, { uren: 0, type: 'dagopvang' }]
+                        });
+                      }}
+                      className="text-sm bg-teal-600 text-white px-3 py-1 rounded hover:bg-teal-700"
+                    >
+                      + Voeg kind toe
+                    </button>
+                    
+                    {(formData.metadata?.kinderen || []).map((kind, index) => (
+                      <div key={index} className="bg-white p-3 rounded space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">Kind {index + 1}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const kinderen = [...(formData.metadata?.kinderen || [])];
+                              kinderen.splice(index, 1);
+                              updateField('metadata', { ...formData.metadata, kinderen });
+                            }}
+                            className="text-red-500 text-xs hover:text-red-700"
+                          >
+                            Verwijder
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">Uren/maand (max 230)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="230"
+                              value={kind.uren}
+                              onChange={(e) => {
+                                const kinderen = [...(formData.metadata?.kinderen || [])];
+                                kinderen[index] = { ...kinderen[index], uren: parseInt(e.target.value) || 0 };
+                                updateField('metadata', { ...formData.metadata, kinderen });
+                              }}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">Type opvang</label>
+                            <select
+                              value={kind.type}
+                              onChange={(e) => {
+                                const kinderen = [...(formData.metadata?.kinderen || [])];
+                                kinderen[index] = { ...kinderen[index], type: e.target.value };
+                                updateField('metadata', { ...formData.metadata, kinderen });
+                              }}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                            >
+                              <option value="dagopvang">Dagopvang</option>
+                              <option value="bso">BSO</option>
+                              <option value="gastouder">Gastouder</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {type === 'income' && formData.category === 'child-benefit' && (
+                  <div className="bg-purple-50 p-4 rounded-lg space-y-3">
+                    <h4 className="font-semibold text-gray-800">Kinderbijslag details</h4>
+                    <p className="text-xs text-gray-600">Voeg kinderen toe met hun leeftijd (0-17 jaar)</p>
+                    
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const leeftijden = formData.metadata?.kinderenLeeftijden || [];
+                        updateField('metadata', {
+                          ...formData.metadata,
+                          kinderenLeeftijden: [...leeftijden, 0]
+                        });
+                      }}
+                      className="text-sm bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700"
+                    >
+                      + Voeg kind toe
+                    </button>
+                    
+                    {(formData.metadata?.kinderenLeeftijden || []).map((leeftijd, index) => (
+                      <div key={index} className="bg-white p-3 rounded flex items-center gap-3">
+                        <span className="text-sm font-medium">Kind {index + 1}:</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="17"
+                          value={leeftijd}
+                          onChange={(e) => {
+                            const leeftijden = [...(formData.metadata?.kinderenLeeftijden || [])];
+                            leeftijden[index] = parseInt(e.target.value) || 0;
+                            updateField('metadata', { ...formData.metadata, kinderenLeeftijden: leeftijden });
+                          }}
+                          className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
+                          placeholder="Leeftijd (0-17)"
+                        />
                         <button
                           type="button"
                           onClick={() => {
-                            const newKinderen = [...(formData.metadata?.kinderen || [])];
-                            newKinderen.splice(i, 1);
-                            updateField('metadata', { ...formData.metadata, kinderen: newKinderen });
+                            const leeftijden = [...(formData.metadata?.kinderenLeeftijden || [])];
+                            leeftijden.splice(index, 1);
+                            updateField('metadata', { ...formData.metadata, kinderenLeeftijden: leeftijden });
                           }}
-                          className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs"
+                          className="text-red-500 text-xs hover:text-red-700"
                         >
                           Verwijder
                         </button>
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-xs mb-1">Uren/maand (max 230)</label>
-                          <input
-                            type="number"
-                            value={kind.uren || 0}
-                            onChange={(e) => {
-                              const newKinderen = [...(formData.metadata?.kinderen || [])];
-                              newKinderen[i] = { ...newKinderen[i], uren: parseInt(e.target.value) || 0 };
-                              updateField('metadata', { ...formData.metadata, kinderen: newKinderen });
-                            }}
-                            className="w-full px-2 py-1 border rounded text-sm"
-                            min="0"
-                            max="230"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs mb-1">Type opvang</label>
-                          <select
-                            value={kind.type || 'dagopvang'}
-                            onChange={(e) => {
-                              const newKinderen = [...(formData.metadata?.kinderen || [])];
-                              newKinderen[i] = { ...newKinderen[i], type: e.target.value };
-                              updateField('metadata', { ...formData.metadata, kinderen: newKinderen });
-                            }}
-                            className="w-full px-2 py-1 border rounded text-sm"
-                          >
-                            <option value="dagopvang">Dagopvang</option>
-                            <option value="bso">BSO</option>
-                            <option value="gastouder">Gastouder</option>
-                          </select>
-                        </div>
-                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {type === 'income' && formData.category === 'child-budget' && (
+                  <div className="bg-pink-50 p-4 rounded-lg space-y-3">
+                    <h4 className="font-semibold text-gray-800">Kindgebonden budget details</h4>
+                    
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-1">Aantal kinderen</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.metadata?.aantalKinderen || 0}
+                        onChange={(e) => updateField('metadata', { 
+                          ...formData.metadata, 
+                          aantalKinderen: parseInt(e.target.value) || 0 
+                        })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      />
                     </div>
-                  ))}
-                </div>
+                    
+                    <label className="flex items-center gap-2">
+                      <input 
+                        type="checkbox" 
+                        checked={formData.metadata?.fiscaalPartner || false}
+                        onChange={(e) => updateField('metadata', { 
+                          ...formData.metadata, 
+                          fiscaalPartner: e.target.checked 
+                        })}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-sm">Fiscaal partner</span>
+                    </label>
+                  </div>
+                )}
+              </div>
+              
+              <div className="p-6 border-t flex gap-3 justify-end">
                 <button
                   type="button"
-                  onClick={() => {
-                    const newKinderen = [...(formData.metadata?.kinderen || []), { uren: 0, type: 'dagopvang' }];
-                    updateField('metadata', { ...formData.metadata, kinderen: newKinderen });
-                  }}
-                  className="px-3 py-1 bg-teal-600 text-white rounded text-sm"
+                  onClick={onCancel}
+                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                 >
-                  + Kind toevoegen
+                  Annuleren
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+                >
+                  Wijzigingen opslaan
                 </button>
               </div>
-            )}
-            
-            {/* Kindgebonden budget specifiek */}
-            {formData.category === 'child-budget' && (
-              <div className="bg-pink-50 p-4 rounded-lg space-y-3">
-                <h3 className="font-semibold">Kindgebonden budget</h3>
-                <div>
-                  <label className="block text-sm mb-1">Aantal kinderen</label>
-                  <input
-                    type="number"
-                    value={formData.metadata?.aantalKinderen || 0}
-                    onChange={(e) => updateField('metadata', {
-                      ...formData.metadata,
-                      aantalKinderen: parseInt(e.target.value) || 0
-                    })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    min="0"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.metadata?.fiscaalPartner || false}
-                    onChange={(e) => updateField('metadata', {
-                      ...formData.metadata,
-                      fiscaalPartner: e.target.checked
-                    })}
-                    className="w-4 h-4"
-                  />
-                  <label className="text-sm">Fiscaal partner</label>
-                </div>
-              </div>
-            )}
-            
-            {/* Start/End Year */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Startjaar</label>
-                <input
-                  type="number"
-                  value={formData.startYear || new Date().getFullYear()}
-                  onChange={(e) => updateField('startYear', parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border rounded-lg"
-                  min="2020"
-                  max="2100"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Eindjaar (optioneel)</label>
-                <input
-                  type="number"
-                  value={formData.endYear || ''}
-                  onChange={(e) => updateField('endYear', e.target.value ? parseInt(e.target.value) : null)}
-                  className="w-full px-3 py-2 border rounded-lg"
-                  min="2020"
-                  max="2100"
-                  placeholder="Onbeperkt"
-                />
-              </div>
-            </div>
-          </div>
-          
-          <div className="p-6 border-t flex gap-3 justify-end">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
-            >
-              Annuleren
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark"
-            >
-              Opslaan
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-function App() {
-  const startYear = new Date().getFullYear();
-
-  const [items, setItems] = useState([
-    { 
-      id: 1, 
-      name: 'Salaris', 
-      type: 'income', 
-      amount: 80000, 
-      frequency: 'yearly', 
-      growthRate: 2, 
-      startYear,
-      category: 'salary'
-    },
-    { 
-      id: 2, 
-      name: 'Levensonderhoud', 
-      type: 'expense', 
-      amount: 2500, 
-      frequency: 'monthly', 
-      adjustForInflation: true, 
-      startYear,
-      category: 'other'
-    },
-    {
-      id: 3,
-      name: 'Hypotheek',
-      type: 'expense',
-      category: 'housing',
-      startYear,
-      metadata: {
-        mortgage: { 
-          outstandingAmount: 300000, 
-          interestRate: 4, 
-          remainingMonths: 360 
-        }
-      }
-    },
-    {
-      id: 4,
-      name: 'Kinderbijslag',
-      type: 'income',
-      category: 'child-benefit',
-      startYear,
-      metadata: { 
-        kinderenLeeftijden: [3, 6] 
-      }
-    }
-  ]);
-
-  const [currentNetWorth, setCurrentNetWorth] = useState(20000);
-  const [targetNetWorth, setTargetNetWorth] = useState(1500000);
-  const [editingItem, setEditingItem] = useState(null);
-  const [showAddDialog, setShowAddDialog] = useState(false);
-
-  const assumptions = { inflationRate: 2, investmentReturn: 7 };
-
-  const projections = buildProjections({
-    startYear,
-    years: 50,
-    startNetWorth: currentNetWorth,
-    items,
-    assumptions,
-    targetNetWorth
-  });
-
-  const handleDelete = (id) => {
-    if (confirm('Weet je zeker dat je dit item wilt verwijderen?')) {
-      setItems(items.filter(item => item.id !== id));
-    }
-  };
-
-  const handleEdit = (item) => {
-    setEditingItem(item);
-  };
-
-  const handleSave = (updatedItem) => {
-    if (updatedItem.id) {
-      setItems(items.map(item => item.id === updatedItem.id ? updatedItem : item));
-    } else {
-      setItems([...items, { ...updatedItem, id: Date.now() }]);
-    }
-    setEditingItem(null);
-    setShowAddDialog(false);
-  };
-
-  const handleAdd = (type) => {
-    setEditingItem({
-      type,
-      name: '',
-      amount: 0,
-      frequency: 'yearly',
-      startYear,
-      category: type === 'income' ? 'salary' : 'other'
-    });
-    setShowAddDialog(true);
-  };
-
-  return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h1 className="text-3xl font-bold text-primary mb-2">Financiële Planning Tool</h1>
-        <p className="text-gray-600">Plan je financiële toekomst met inzicht in vermogen, toeslagen en FIRE</p>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KPICard 
-          icon="💰" 
-          label="Maandelijks saldo" 
-          value={formatCurrency(projections.monthlySavings)} 
-        />
-        <KPICard 
-          icon="🎯" 
-          label="Vermogensdoel" 
-          value={formatCurrency(targetNetWorth)} 
-        />
-        <KPICard 
-          icon="🔥" 
-          label="FIRE Jaar" 
-          value={projections.fireYear || '—'} 
-        />
-        <KPICard 
-          icon="🎁" 
-          label="Toeslagen p/j" 
-          value={formatCurrency(projections.timeline?.[0]?.cashflow?.toeslagen ?? 0)} 
-        />
-      </div>
-
-      <div className="bg-white p-6 rounded-lg shadow">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Inkomsten & Uitgaven</h2>
-          <div className="flex gap-2">
-            <button 
-              onClick={() => handleAdd('income')}
-              className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition"
-            >
-              + Inkomen
-            </button>
-            <button 
-              onClick={() => handleAdd('expense')}
-              className="px-4 py-2 bg-secondary text-white rounded hover:bg-blue-700 transition"
-            >
-              + Uitgave
-            </button>
+            </form>
           </div>
         </div>
-        
-        <div className="space-y-3">
-          {items.map(item => (
-            <div key={item.id} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xl">
-                    {item.type === 'income' ? '💰' : '💸'}
-                  </span>
-                  <span className="font-medium text-lg">{item.name}</span>
-                  {item.category === 'housing' && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">🏠 Hypotheek</span>}
-                  {item.category === 'child-benefit' && <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">🍼 Kinderbijslag</span>}
-                  {item.category === 'childcare' && <span className="text-xs bg-teal-100 text-teal-800 px-2 py-1 rounded">👶 Kinderopvang</span>}
-                  {item.category === 'child-budget' && <span className="text-xs bg-pink-100 text-pink-800 px-2 py-1 rounded">👨‍👩‍👧 Kindgebonden budget</span>}
-                </div>
-                
-                <div className="flex items-center gap-4 text-sm text-gray-600">
-                  <span className="font-semibold text-primary">
-                    {getItemDisplayAmount(item, assumptions)}/jaar
-                  </span>
-                  
-                  {item.category === 'child-benefit' && item.metadata?.kinderenLeeftijden && (
-                    <span>• {item.metadata.kinderenLeeftijden.length} {item.metadata.kinderenLeeftijden.length === 1 ? 'kind' : 'kinderen'} (leeftijd: {item.metadata.kinderenLeeftijden.join(', ')})</span>
-                  )}
-                  
-                  {item.category === 'childcare' && item.metadata?.kinderen && (
-                    <span>• {item.metadata.kinderen.length} {item.metadata.kinderen.length === 1 ? 'kind' : 'kinderen'}</span>
-                  )}
-                  
-                  {item.category === 'child-budget' && item.metadata?.aantalKinderen > 0 && (
-                    <span>• {item.metadata.aantalKinderen} {item.metadata.aantalKinderen === 1 ? 'kind' : 'kinderen'}</span>
-                  )}
-                  
-                  {item.category === 'housing' && item.metadata?.mortgage && (
-                    <span>• Restschuld: {formatCurrency(item.metadata.mortgage.outstandingAmount)} @ {item.metadata.mortgage.interestRate}%</span>
-                  )}
-                  
-                  {item.growthRate > 0 && (
-                    <span>• +{item.growthRate}% groei/jaar</span>
-                  )}
-                  
-                  {item.adjustForInflation && (
-                    <span>• Inflatie-gecorrigeerd</span>
-                  )}
-                  
-                  <span className="text-gray-400">• Vanaf {item.startYear}</span>
+      );
+    }
+
+    function AddExpenseDialog({ isOpen, onSelectCategory, onCancel }) {
+      if (!isOpen) return null;
+      
+      const categories = [
+        { id: 'housing', name: 'Woning', emoji: '🏠', description: 'Hypotheek, huur, onderhoud', type: 'housing' },
+        { id: 'recurring', name: 'Reguliere periodieke uitgaven', emoji: '🔄', description: 'Abonnementen, verzekeringen, energiekosten', type: 'recurring' },
+        { id: 'children', name: 'Kindgerelateerde uitgaven', emoji: '👶', description: 'Kinderopvang, schoolkosten', type: 'children' },
+        { id: 'other', name: 'Overige lasten', emoji: '🛒', description: 'Boodschappen, kleding, verzorging, restaurants, vakanties', type: 'other' }
+      ];
+      
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b">
+              <h2 className="text-2xl font-bold text-dark">Voeg toe aan plan</h2>
+            </div>
+            
+            <div className="p-6">
+              <div className="mb-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-accent rounded-xl flex items-center justify-center text-2xl">💰</div>
+                  <h3 className="text-xl font-semibold">Uitgaven</h3>
                 </div>
               </div>
               
-              <div className="flex gap-2 ml-4">
-                <button 
-                  onClick={() => handleEdit(item)}
-                  className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded transition"
-                >
-                  ✏️ Bewerk
-                </button>
-                <button 
-                  onClick={() => handleDelete(item.id)}
-                  className="px-3 py-1 text-sm bg-red-100 hover:bg-red-200 text-red-700 rounded transition"
-                >
-                  🗑️ Verwijder
-                </button>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {categories.map(category => (
+                  <button
+                    key={category.id}
+                    onClick={() => onSelectCategory(category)}
+                    className="flex items-start gap-4 p-4 border-2 border-gray-200 rounded-lg hover:border-primary hover:bg-primary/5 transition-all text-left"
+                  >
+                    <div className="text-4xl">{category.emoji}</div>
+                    <div className="flex-1">
+                      <div className="font-semibold text-dark mb-1">{category.name}</div>
+                      <div className="text-sm text-gray-600">{category.description}</div>
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
-          ))}
-          
-          {items.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              <p className="mb-2">Nog geen items toegevoegd</p>
-              <p className="text-sm">Klik op "+ Inkomen" of "+ Uitgave" om te beginnen</p>
+            
+            <div className="p-6 border-t flex justify-end">
+              <button onClick={onCancel} className="px-6 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                Annuleren
+              </button>
             </div>
-          )}
-        </div>
-      </div>
-
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-xl font-semibold mb-4">Vermogensontwikkeling (eerste 10 jaar)</h2>
-        
-        {projections.fireYear && (
-          <div className="mb-4 p-3 bg-green-50 border-l-4 border-green-500 rounded">
-            <p className="text-green-800">
-              🎉 Je bereikt je vermogensdoel in <strong>{projections.fireYear}</strong> (over {projections.yearsToFire} jaar)
-            </p>
           </div>
-        )}
-        
-        <div className="space-y-2">
-          {projections.timeline.slice(0, 10).map(y => (
-            <div key={y.year} className="flex justify-between items-center text-sm">
-              <span className="font-medium">{y.year}</span>
-              <div className="flex items-center gap-4">
-                <span className="text-gray-600">
-                  Vermogen: <span className="font-semibold">{formatCurrency(y.netWorth)}</span>
-                </span>
-                {y.cashflow.toeslagen > 0 && (
-                  <span className="text-green-600 text-xs">
-                    +{formatCurrency(y.cashflow.toeslagen)} toeslagen
-                  </span>
-                )}
+        </div>
+      );
+    }
+
+    function AddIncomeDialog({ isOpen, onSelectCategory, onCancel }) {
+      if (!isOpen) return null;
+      
+      const categories = [
+        { id: 'salary', name: 'Salaris / Loon', emoji: '💼', description: 'Regulier inkomen uit werk', type: 'salary' },
+        { id: 'childcare', name: 'Kinderopvangtoeslag', emoji: '👶', description: 'Automatisch berekend o.b.v. verzamelinkomen', type: 'childcare' },
+        { id: 'child-benefit', name: 'Kinderbijslag', emoji: '🍼', description: 'Automatisch berekend o.b.v. leeftijden', type: 'child-benefit' },
+        { id: 'child-budget', name: 'Kindgebonden budget', emoji: '👨‍👩‍👧', description: 'Automatisch berekend o.b.v. verzamelinkomen', type: 'child-budget' },
+        { id: 'other-income', name: 'Overig inkomen', emoji: '💰', description: 'Freelance, bijverdiensten, dividend', type: 'other-income' }
+      ];
+      
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b">
+              <h2 className="text-2xl font-bold text-dark">Voeg inkomen toe</h2>
+            </div>
+            
+            <div className="p-6">
+              <div className="mb-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-2xl">💰</div>
+                  <h3 className="text-xl font-semibold">Inkomsten</h3>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {categories.map(category => (
+                  <button
+                    key={category.id}
+                    onClick={() => onSelectCategory(category)}
+                    className="flex items-start gap-4 p-4 border-2 border-gray-200 rounded-lg hover:border-primary hover:bg-primary/5 transition-all text-left"
+                  >
+                    <div className="text-4xl">{category.emoji}</div>
+                    <div className="flex-1">
+                      <div className="font-semibold text-dark mb-1">{category.name}</div>
+                      <div className="text-sm text-gray-600">{category.description}</div>
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
-          ))}
+            
+            <div className="p-6 border-t flex justify-end">
+              <button onClick={onCancel} className="px-6 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                Annuleren
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      );
+    }
+
+    function HousingDialog({ isOpen, item, onSave, onCancel }) {
+      const [formData, setFormData] = useState(item || {});
       
-      {/* Edit Dialog */}
-      {(editingItem || showAddDialog) && (
-        <SimpleEditDialog
-          item={editingItem}
-          onSave={handleSave}
-          onCancel={() => {
-            setEditingItem(null);
-            setShowAddDialog(false);
-          }}
-        />
-      )}
-    </div>
-  );
-}
+      useEffect(() => {
+        setFormData(item || {});
+      }, [item]);
+      
+      if (!isOpen) return null;
+      
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        
+        const principal = formData.outstandingAmount || 0;
+        const annualRate = (formData.interestRate || 0) / 100;
+        const monthlyRate = annualRate / 12;
+        const remainingMonths = formData.remainingMonths || 360;
+        
+        let monthlyPayment = 0;
+        
+        if (formData.mortgageType === 'annuity') {
+          if (remainingMonths > 0 && monthlyRate > 0) {
+            monthlyPayment = principal * (monthlyRate * Math.pow(1 + monthlyRate, remainingMonths)) / 
+                            (Math.pow(1 + monthlyRate, remainingMonths) - 1);
+          }
+        } else if (formData.mortgageType === 'interest-only') {
+          monthlyPayment = principal * monthlyRate;
+        }
+        
+        // Convert dates to years for the financial engine
+        const startYear = formData.startDate ? new Date(formData.startDate).getFullYear() : new Date().getFullYear();
+        const endYear = formData.endDate ? new Date(formData.endDate).getFullYear() : null;
+        
+        const updatedData = {
+          ...formData,
+          amount: monthlyPayment,
+          frequency: 'monthly',
+          category: 'housing',
+          startYear,
+          endYear
+        };
+        
+        onSave(updatedData);
+      };
+      
+      const updateField = (field, value) => {
+        setFormData({ ...formData, [field]: value });
+      };
+      
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <form onSubmit={handleSubmit}>
+              <div className="p-6 border-b">
+                <h2 className="text-xl font-bold text-dark">🏠 Woning</h2>
+              </div>
+              
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Naam</label>
+                  <input
+                    type="text"
+                    value={formData.name || 'Hypotheek'}
+                    onChange={(e) => updateField('name', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Type hypotheek</label>
+                  <select
+                    value={formData.mortgageType || 'annuity'}
+                    onChange={(e) => updateField('mortgageType', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  >
+                    <option value="annuity">Annuïtair</option>
+                    <option value="interest-only">Aflossingsvrij</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Uitstaand bedrag hypotheek</label>
+                  <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent">
+                    <span className="px-3 py-2 text-gray-500 bg-gray-50 border-r">€</span>
+                    <input
+                      type="number"
+                      value={formData.outstandingAmount || 0}
+                      onChange={(e) => updateField('outstandingAmount', parseFloat(e.target.value) || 0)}
+                      className="flex-1 px-3 py-2 border-0 focus:ring-0"
+                      required
+                      min="0"
+                      step="1"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Rentepercentage</label>
+                  <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent">
+                    <input
+                      type="number"
+                      value={formData.interestRate || 0}
+                      onChange={(e) => updateField('interestRate', parseFloat(e.target.value) || 0)}
+                      className="flex-1 px-3 py-2 border-0 focus:ring-0"
+                      required
+                      min="0"
+                      max="20"
+                      step="0.01"
+                    />
+                    <span className="px-3 py-2 text-gray-500 bg-gray-100 border-l">%</span>
+                  </div>
+                </div>
+                
+                {formData.mortgageType === 'annuity' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Resterende looptijd (maanden)</label>
+                    <input
+                      type="number"
+                      value={formData.remainingMonths || 360}
+                      onChange={(e) => updateField('remainingMonths', parseInt(e.target.value) || 360)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      required
+                      min="1"
+                      max="600"
+                      placeholder="360 (= 30 jaar)"
+                    />
+                    <div className="text-xs text-gray-500 mt-1">
+                      {formData.remainingMonths ? `${(formData.remainingMonths / 12).toFixed(1)} jaar` : ''}
+                    </div>
+                  </div>
+                )}
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Ingangsdatum</label>
+                  <input
+                    type="date"
+                    value={formData.startDate || ''}
+                    onChange={(e) => updateField('startDate', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Einddatum (optioneel)</label>
+                  <input
+                    type="date"
+                    value={formData.endDate || ''}
+                    onChange={(e) => updateField('endDate', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="Einddatum hypotheek"
+                  />
+                </div>
+              </div>
+              
+              <div className="p-6 border-t flex gap-3 justify-end">
+                <button type="button" onClick={onCancel} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                  Annuleren
+                </button>
+                <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors">
+                  Wijzigingen opslaan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+    
+    function KPICard({ icon, label, value, color = 'primary' }) {
+      const colorClasses = {
+        primary: 'border-primary bg-primary/5',
+        secondary: 'border-secondary bg-secondary/5',
+        accent: 'border-accent bg-accent/5',
+      };
+      
+      return (
+        <div className={`bg-white rounded-lg shadow p-4 border-l-4 ${colorClasses[color]}`}>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-2xl">{icon}</span>
+          </div>
+          <div className="text-sm text-gray-600 mb-1">{label}</div>
+          <div className="text-xl font-bold text-dark">{value}</div>
+        </div>
+      );
+    }
+    
+    function App() {
+      const [incomeItems, setIncomeItems] = useState([
+        { id: 1, name: 'Salaris', amount: 80000, frequency: 'yearly', growthRate: 2, startYear: 2026, endYear: null, category: 'salary' }
+      ]);
+      
+      const [expenseItems, setExpenseItems] = useState([
+        { id: 1, name: 'Levensonderhoud', amount: 2500, frequency: 'monthly', startYear: 2026, endYear: null, category: 'other', adjustForInflation: true }
+      ]);
+      
+      const [currentNetWorth, setCurrentNetWorth] = useState(20000);
+      const [targetNetWorth, setTargetNetWorth] = useState(1500000);
+      
+      const [assumptions, setAssumptions] = useState({
+        inflationRate: 2.0,
+        investmentReturn: 7.0,
+        safeWithdrawalRate: 4.0,
+      });
+      
+      const [editDialog, setEditDialog] = useState({ isOpen: false, type: null, item: null });
+      const [showCategoryDialog, setShowCategoryDialog] = useState(false);
+      const [showIncomeCategoryDialog, setShowIncomeCategoryDialog] = useState(false);
+      const [housingDialog, setHousingDialog] = useState({ isOpen: false, item: null });
+      
+      const [projections, setProjections] = useState(null);
+      
+      useEffect(() => {
+        try {
+          const currentYear = new Date().getFullYear();
+          const endYear = currentYear + 50;
+          
+          const timeline = projectNetWorth({
+            startYear: currentYear,
+            endYear: endYear,
+            startNetWorth: currentNetWorth,
+            incomes: incomeItems,
+            expenses: expenseItems,
+            assumptions: assumptions
+          });
+          
+          const fireYear = findFireYear(timeline, targetNetWorth);
+          
+          const firstYearCashflow = timeline[0]?.cashflow;
+          const monthlySavings = firstYearCashflow ? monthlySavingsFromCashflow(firstYearCashflow) : 0;
+          
+          setProjections({
+            timeline,
+            fireYear,
+            monthlySavings,
+            yearsToFire: fireYear ? fireYear - currentYear : null
+          });
+        } catch (error) {
+          console.error('Calculation error:', error);
+          setProjections(null);
+        }
+      }, [incomeItems, expenseItems, currentNetWorth, targetNetWorth, assumptions]);
+      
+      const addIncome = () => {
+        setShowIncomeCategoryDialog(true);
+      };
+      
+      const handleIncomeCategorySelect = (category) => {
+        setShowIncomeCategoryDialog(false);
+        
+        const newIncome = {
+          id: Date.now(),
+          name: category.name,
+          amount: 0,
+          frequency: 'yearly',
+          growthRate: 0,
+          startYear: new Date().getFullYear(),
+          endYear: null,
+          category: category.type,
+          metadata: category.type === 'childcare' ? { kinderen: [] } :
+                    category.type === 'child-benefit' ? { kinderenLeeftijden: [] } :
+                    category.type === 'child-budget' ? { aantalKinderen: 0, fiscaalPartner: false } : null
+        };
+        setEditDialog({ isOpen: true, type: 'income', item: newIncome });
+      };
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
-</script>
+      const addExpense = () => {
+        setShowCategoryDialog(true);
+      };
 
+      const handleCategorySelect = (category) => {
+        setShowCategoryDialog(false);
+        
+        if (category.type === 'housing') {
+          const newHousing = {
+            id: Date.now(),
+            name: 'Hypotheek',
+            mortgageType: 'annuity',
+            outstandingAmount: 0,
+            interestRate: 0,
+            remainingMonths: 360,
+            startYear: new Date().getFullYear(),
+            endYear: null,
+            category: 'housing'
+          };
+          setHousingDialog({ isOpen: true, item: newHousing });
+        } else {
+          const newExpense = {
+            id: Date.now(),
+            name: category.name,
+            amount: 0,
+            frequency: 'monthly',
+            startYear: new Date().getFullYear(),
+            endYear: null,
+            category: category.type,
+            adjustForInflation: category.type === 'other'
+          };
+          setEditDialog({ isOpen: true, type: 'expense', item: newExpense });
+        }
+      };
+
+      const saveHousing = (item) => {
+        const existingIndex = expenseItems.findIndex(i => i.id === item.id);
+        if (existingIndex >= 0) {
+          const updated = [...expenseItems];
+          updated[existingIndex] = item;
+          setExpenseItems(updated);
+        } else {
+          setExpenseItems([...expenseItems, item]);
+        }
+        setHousingDialog({ isOpen: false, item: null });
+      };
+
+      const editItem = (type, item) => {
+        if (type === 'expense' && item.category === 'housing') {
+          // Convert years to dates for the form
+          const itemWithDates = { 
+            ...item,
+            startDate: item.startYear ? `${item.startYear}-01-01` : '',
+            endDate: item.endYear ? `${item.endYear}-12-31` : ''
+          };
+          setHousingDialog({ isOpen: true, item: itemWithDates });
+        } else {
+          setEditDialog({ isOpen: true, type, item: { ...item } });
+        }
+      };
+
+      const saveItem = (item) => {
+        if (editDialog.type === 'income') {
+          const existingIndex = incomeItems.findIndex(i => i.id === item.id);
+          if (existingIndex >= 0) {
+            const updated = [...incomeItems];
+            updated[existingIndex] = item;
+            setIncomeItems(updated);
+          } else {
+            setIncomeItems([...incomeItems, item]);
+          }
+        } else {
+          const existingIndex = expenseItems.findIndex(i => i.id === item.id);
+          if (existingIndex >= 0) {
+            const updated = [...expenseItems];
+            updated[existingIndex] = item;
+            setExpenseItems(updated);
+          } else {
+            setExpenseItems([...expenseItems, item]);
+          }
+        }
+        setEditDialog({ isOpen: false, type: null, item: null });
+      };
+
+      const deleteItem = (type, id) => {
+        if (type === 'income') {
+          setIncomeItems(incomeItems.filter(i => i.id !== id));
+        } else {
+          setExpenseItems(expenseItems.filter(i => i.id !== id));
+        }
+      };
+      
+      return (
+        <div className="min-h-screen bg-light">
+          <header className="bg-white shadow-sm border-b">
+            <div className="max-w-7xl mx-auto px-4 py-4">
+              <h1 className="text-2xl font-bold text-primary">Financiële planningstool</h1>
+              <p className="text-sm text-gray-600">Bereken je financiële positie en vermogensdoel</p>
+            </div>
+          </header>
+          
+          <div className="max-w-7xl mx-auto px-4 py-6">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              
+              <div className="lg:col-span-1 space-y-4">
+                <div className="bg-white rounded-lg shadow p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="font-semibold flex items-center gap-2">
+                      💰 Inkomsten
+                      <span className="text-xs text-gray-500">({incomeItems.length})</span>
+                    </h2>
+                    <button onClick={addIncome} className="text-primary hover:text-primary-dark text-xl" title="Voeg inkomen toe">+</button>
+                  </div>
+                  <ItemList items={incomeItems} type="income" onEdit={editItem} onDelete={deleteItem} />
+                </div>
+                
+                <div className="bg-white rounded-lg shadow p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="font-semibold flex items-center gap-2">
+                      🛒 Uitgaven
+                      <span className="text-xs text-gray-500">({expenseItems.length})</span>
+                    </h2>
+                    <button onClick={addExpense} className="text-primary hover:text-primary-dark text-xl" title="Voeg uitgave toe">+</button>
+                  </div>
+                  <ItemList items={expenseItems} type="expense" onEdit={editItem} onDelete={deleteItem} />
+                </div>
+                
+                <div className="bg-white rounded-lg shadow p-4">
+                  <h2 className="font-semibold mb-3">⚙️ Instellingen</h2>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Huidig vermogen</label>
+                      <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+                        <span className="px-2 py-1.5 text-sm text-gray-500 bg-gray-50 border-r">€</span>
+                        <input
+                          type="number"
+                          value={currentNetWorth}
+                          onChange={(e) => setCurrentNetWorth(parseFloat(e.target.value) || 0)}
+                          className="flex-1 px-2 py-1.5 text-sm border-0 focus:ring-1 focus:ring-primary"
+                          step="1000"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Vermogensdoel</label>
+                      <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+                        <span className="px-2 py-1.5 text-sm text-gray-500 bg-gray-50 border-r">€</span>
+                        <input
+                          type="number"
+                          value={targetNetWorth}
+                          onChange={(e) => setTargetNetWorth(parseFloat(e.target.value) || 0)}
+                          className="flex-1 px-2 py-1.5 text-sm border-0 focus:ring-1 focus:ring-primary"
+                          step="10000"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="lg:col-span-3 space-y-6">
+                
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <KPICard 
+                    icon="🎯"
+                    label="Jaar tot vermogensdoel"
+                    value={projections?.yearsToFire ? `${projections.yearsToFire} jaar` : 'Berekenen...'}
+                    color="primary"
+                  />
+                  <KPICard 
+                    icon="🪙"
+                    label="Vermogensdoel"
+                    value={formatCurrency(targetNetWorth)}
+                    color="secondary"
+                  />
+                  <KPICard 
+                    icon="📊"
+                    label="Huidig vermogen"
+                    value={formatCurrency(currentNetWorth)}
+                    color="accent"
+                  />
+                  <KPICard 
+                    icon="↕️"
+                    label="Maandelijks saldo"
+                    value={projections?.monthlySavings ? formatCurrency(projections.monthlySavings) : 'Berekenen...'}
+                    color="primary"
+                  />
+                  {projections?.timeline[0]?.cashflow?.toeslagen > 0 && (
+                    <div className="relative group">
+                      <KPICard 
+                        icon="🎁"
+                        label="Jaarlijkse toeslagen"
+                        value={formatCurrency(projections.timeline[0].cashflow.toeslagen)}
+                        color="accent"
+                      />
+                      <div className="absolute left-0 top-full mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                        <p className="text-xs font-semibold text-gray-700 mb-2">Samenstelling toeslagen:</p>
+                        {incomeItems.filter(i => ['childcare', 'child-benefit', 'child-budget'].includes(i.category)).map(item => (
+                          <div key={item.id} className="text-xs text-gray-600 flex justify-between mb-1">
+                            <span>{item.category === 'childcare' ? '👶 Kinderopvang' : item.category === 'child-benefit' ? '🍼 Kinderbijslag' : '👨‍👩‍👧 Kindgebonden budget'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h2 className="text-lg font-semibold mb-4">Vermogensontwikkeling</h2>
+                  {projections ? (
+                    <div className="space-y-4">
+                      <div className="text-sm text-gray-600">
+                        {projections.fireYear ? (
+                          <p>🎉 Je bereikt je vermogensdoel in <strong>{projections.fireYear}</strong> (over {projections.yearsToFire} jaar)</p>
+                        ) : (
+                          <p>⚠️ Met de huidige instellingen bereik je het vermogensdoel niet binnen 50 jaar</p>
+                        )}
+                      </div>
+                      
+                      {projections.timeline[0]?.cashflow?.toeslagen > 0 && (
+                        <div className="bg-green-50 border-l-4 border-green-500 p-3 rounded">
+                          <p className="text-sm text-green-800">
+                            <strong>💡 Toeslagen inbegrepen:</strong> Je projectie houdt rekening met {formatCurrency(projections.timeline[0].cashflow.toeslagen)} aan toeslagen per jaar
+                          </p>
+                        </div>
+                      )}
+                      
+                      <div className="border rounded-lg p-4 bg-gray-50">
+                        <div className="text-xs text-gray-500 mb-2">Eerste 10 jaar projectie:</div>
+                        <div className="space-y-1">
+                          {projections.timeline.slice(0, 10).map((year, index) => (
+                            <div key={index} className="flex items-center gap-2 text-sm">
+                              <span className="w-16 text-gray-600">{year.year}</span>
+                              <div className="flex-1 bg-gray-200 rounded-full h-6 relative">
+                                <div 
+                                  className="bg-primary h-6 rounded-full flex items-center justify-end pr-2 text-white text-xs font-medium"
+                                  style={{ width: `${Math.min(100, (year.netWorth / targetNetWorth) * 100)}%` }}
+                                >
+                                  {year.netWorth >= 10000 && formatCurrency(year.netWorth)}
+                                </div>
+                              </div>
+                              {year.savingsRate !== null && (
+                                <span className="text-xs text-gray-500 w-16 text-right">{year.savingsRate.toFixed(0)}%</span>
+                              )}
+                              {year.cashflow?.toeslagen > 0 && (
+                                <span className="text-xs text-green-600 w-20 text-right">
+                                  +{formatCurrency(year.cashflow.toeslagen)} toeslagen
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="h-96 flex items-center justify-center text-gray-400">
+                      Berekeningen worden uitgevoerd...
+                    </div>
+                  )}
+                </div>
+                
+              </div>
+              
+            </div>
+          </div>
+
+          <EditDialog
+            isOpen={editDialog.isOpen}
+            type={editDialog.type}
+            item={editDialog.item}
+            onSave={saveItem}
+            onCancel={() => setEditDialog({ isOpen: false, type: null, item: null })}
+          />
+          
+          <AddIncomeDialog
+            isOpen={showIncomeCategoryDialog}
+            onSelectCategory={handleIncomeCategorySelect}
+            onCancel={() => setShowIncomeCategoryDialog(false)}
+          />
+          
+          <AddExpenseDialog
+            isOpen={showCategoryDialog}
+            onSelectCategory={handleCategorySelect}
+            onCancel={() => setShowCategoryDialog(false)}
+          />
+
+          <HousingDialog
+            isOpen={housingDialog.isOpen}
+            item={housingDialog.item}
+            onSave={saveHousing}
+            onCancel={() => setHousingDialog({ isOpen: false, item: null })}
+          />
+        
+        </div>
+      );
+    }
+    
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
 </body>
 </html>
