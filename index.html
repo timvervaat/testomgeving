@@ -320,6 +320,60 @@
       return totaalJaar;
     };
     
+    // Mortgage Calculation with Amortization
+    const calculateMortgageYear = ({ outstandingAmount, interestRate, remainingMonths }, yearsSinceStart) => {
+      const monthlyRate = (interestRate / 100) / 12;
+      
+      if (!monthlyRate) {
+        // Interest-free: simple amortization
+        const monthlyPayment = outstandingAmount / remainingMonths;
+        const yearsElapsed = Math.min(yearsSinceStart, Math.floor(remainingMonths / 12));
+        return {
+          payment: monthlyPayment * 12,
+          interest: 0,
+          principal: monthlyPayment * 12,
+          remainingBalance: Math.max(0, outstandingAmount - (monthlyPayment * 12 * yearsElapsed))
+        };
+      }
+      
+      // Annuity calculation
+      const monthlyPayment = outstandingAmount * (monthlyRate / (1 - Math.pow(1 + monthlyRate, -remainingMonths)));
+      
+      // Calculate balance after yearsSinceStart years
+      let balance = outstandingAmount;
+      let totalInterestThisYear = 0;
+      
+      const monthsPassed = yearsSinceStart * 12;
+      const startMonth = Math.max(0, monthsPassed - 12);
+      const endMonth = Math.min(monthsPassed, remainingMonths);
+      
+      // Fast forward to start of this year
+      for (let month = 0; month < startMonth; month++) {
+        const interest = balance * monthlyRate;
+        const principal = monthlyPayment - interest;
+        balance -= principal;
+      }
+      
+      // Calculate this year's interest
+      for (let month = startMonth; month < endMonth; month++) {
+        const interest = balance * monthlyRate;
+        const principal = monthlyPayment - interest;
+        totalInterestThisYear += interest;
+        balance -= principal;
+      }
+      
+      return {
+        payment: monthlyPayment * 12,
+        interest: totalInterestThisYear,
+        principal: (monthlyPayment * 12) - totalInterestThisYear,
+        remainingBalance: Math.max(0, balance)
+      };
+    };
+    
+    const mortgagePaymentAnnual = ({ outstandingAmount, interestRate, remainingMonths }) => {
+      return calculateMortgageYear({ outstandingAmount, interestRate, remainingMonths }, 1).payment;
+    };
+    
     // From cashflow.js
     const calculateAnnualCashflow = (year, incomes, expenses, assumptions = {}) => {
       if (typeof year !== 'number' || year < 1900) {
@@ -340,13 +394,26 @@
         totalGrossIncome += grown;
       }
       
-      const taxResult = calculateDutchTax2026(totalGrossIncome);
-      const netIncome = taxResult.netIncome;
-      
+      // Track mortgage interest for tax deduction
+      let hypotheekrenteAftrek = 0;
       let totalExpenses = 0;
       
       for (const expense of expenses) {
         if (!isActiveInYear(expense, year)) continue;
+        
+        // Handle mortgage with amortization and interest deduction
+        if (expense.category === 'housing' && expense.mortgageType) {
+          const yearsActive = Math.max(0, year - expense.startYear);
+          const mortgageData = calculateMortgageYear({
+            outstandingAmount: expense.outstandingAmount,
+            interestRate: expense.interestRate,
+            remainingMonths: expense.remainingMonths
+          }, yearsActive + 1);
+          
+          totalExpenses += mortgageData.payment;
+          hypotheekrenteAftrek += mortgageData.interest; // Interest is tax deductible
+          continue;
+        }
         
         const baseYearly = yearlyAmount(expense.amount, expense.frequency);
         const yearsActive = Math.max(0, year - expense.startYear); // Safety: prevent negative
@@ -357,6 +424,11 @@
         
         totalExpenses += adjusted;
       }
+      
+      // Apply mortgage interest deduction to taxable income (Box 1)
+      const taxableIncome = Math.max(0, totalGrossIncome - hypotheekrenteAftrek);
+      const taxResult = calculateDutchTax2026(taxableIncome);
+      const netIncome = totalGrossIncome - taxResult.netTax; // Gross - tax (on reduced taxable income)
       
       // Bereken toeslagen (netto, niet belastbaar)
       let toeslagenTotaal = 0;
@@ -400,11 +472,13 @@
       return {
         year: Number(year),
         grossIncome: Number(totalGrossIncome.toFixed(2)),
+        taxableIncome: Number(taxableIncome.toFixed(2)),
         netIncome: Number(netIncome.toFixed(2)),
         expenses: Number(totalExpenses.toFixed(2)),
         savings: Number(netSavings.toFixed(2)), // Now includes toeslagen benefit
         toeslagen: Number(toeslagenTotaal.toFixed(2)),
-        effectiveTaxRate: taxResult.effectiveRate
+        hypotheekrenteAftrek: Number(hypotheekrenteAftrek.toFixed(2)),
+        effectiveTaxRate: taxableIncome > 0 ? Number((taxResult.netTax / totalGrossIncome * 100).toFixed(2)) : 0
       };
     };
     
@@ -473,6 +547,29 @@
         maximumFractionDigits: 0,
       }).format(value);
     };
+    
+    // Calculate estimated toeslag amount for display (uses avg income of 40k)
+    const calculateToeslagEstimate = (item) => {
+      const estimatedNetIncome = 40000; // Reasonable average for estimation
+      
+      if (item.category === 'childcare' && item.metadata?.kinderen) {
+        return berekenKinderopvangtoeslag(estimatedNetIncome, item.metadata.kinderen);
+      }
+      
+      if (item.category === 'child-benefit' && item.metadata?.kinderenLeeftijden) {
+        return berekenKinderbijslag(item.metadata.kinderenLeeftijden);
+      }
+      
+      if (item.category === 'child-budget' && item.metadata?.aantalKinderen) {
+        return berekenKindgebondenBudget(
+          estimatedNetIncome,
+          item.metadata.aantalKinderen,
+          item.metadata.fiscaalPartner || false
+        );
+      }
+      
+      return 0;
+    };
 
     function ItemList({ items, type, onEdit, onDelete }) {
       if (items.length === 0) {
@@ -526,7 +623,10 @@
                 </div>
                 <div className="text-xs text-gray-600">
                   {['childcare', 'child-benefit', 'child-budget'].includes(item.category) ? (
-                    <span className="italic text-green-600">Automatisch berekend o.b.v. verzamelinkomen</span>
+                    <>
+                      <span className="font-semibold text-primary">~{formatCurrency(calculateToeslagEstimate(item))} / jaar</span>
+                      <span className="text-gray-500 ml-1">(schatting o.b.v. €40k inkomen)</span>
+                    </>
                   ) : (
                     <>
                       {formatCurrency(item.amount)} / {item.frequency === 'monthly' ? 'maand' : 'jaar'}
