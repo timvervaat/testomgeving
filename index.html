@@ -1942,6 +1942,7 @@
           startYear: new Date().getFullYear(),
           endYear: null,
           category: category.type,
+          partner: 'partner1', // Nieuwe veld
           metadata: category.type === 'childcare' ? { kinderen: [] } :
                     category.type === 'child-benefit' ? { kinderenLeeftijden: [] } :
                     category.type === 'child-budget' ? { aantalKinderen: 0, fiscaalPartner: false } : null
