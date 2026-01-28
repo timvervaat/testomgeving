@@ -521,9 +521,23 @@
         totalExpenses += adjusted;
       }
       
+      // Calculate IACK (if applicable)
+      let iack = 0;
+      const heeftKindOnder12 = incomes.some(inc => 
+        inc.category === 'child-benefit' && 
+        inc.metadata?.kinderenLeeftijden?.some(leeftijd => leeftijd < 12)
+      );
+      
+      if (heeftKindOnder12 && totalGrossIncome > 0) {
+        // Inkomsten werk en woning = bruto + EWF - hypotheekrente
+        const ewf = berekenEigenwoningforfait(assumptions.wozWaarde || 0);
+        const inkomstenWerkWoning = totalGrossIncome + ewf - hypotheekrenteAftrek;
+        iack = berekenIACK(inkomstenWerkWoning);
+      }
+      
       // Apply mortgage interest deduction to taxable income (Box 1)
       const taxableIncome = Math.max(0, totalGrossIncome - hypotheekrenteAftrek);
-      const taxResult = calculateDutchTax2026(taxableIncome);
+      const taxResult = calculateDutchTax2026(taxableIncome, iack);
       const netIncome = totalGrossIncome - taxResult.netTax; // Gross - tax (on reduced taxable income)
       
       // Bereken toeslagen (netto, niet belastbaar)
