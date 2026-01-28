@@ -326,6 +326,19 @@
       return totaalJaar;
     };
     
+   // Bereken IACK (alleen voor minstverdienende met kind <12)
+    const berekenIACK = (inkomstenWerkWoning) => {
+      const inkomen = parseFloat(inkomstenWerkWoning) || 0;
+      const { IACK } = TOESLAGEN_2026;
+      
+      // Formule: IF(inkomen<=6239; 0; IF(inkomen<=32710; 0,1145*(inkomen-6239); 3032))
+      if (inkomen <= IACK.DREMPEL) return 0; // €6.239
+      if (inkomen <= 32710) {
+        return IACK.FACTOR * (inkomen - IACK.DREMPEL); // 11,45%
+      }
+      return IACK.MAX; // €3.032
+    };
+    
     // Eigenwoningforfait berekening (2026)
     const berekenEigenwoningforfait = (wozWaarde) => {
       const woz = parseFloat(wozWaarde) || 0;
