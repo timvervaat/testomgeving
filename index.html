@@ -616,7 +616,7 @@
       const timeline = [];
       
       for (let year = startYear; year <= endYear; year++) {
-        const cashflow = calculateAnnualCashflow(year, incomes, expenses, assumptions);
+        const cashflow = calculateAnnualCashflow(year, incomes, expenses, { ...assumptions, wozWaarde: assumptions.wozWaarde || 0 });
         
         // Liquid net worth grows with investment return + savings
         liquidNetWorth *= (1 + investmentRate);
