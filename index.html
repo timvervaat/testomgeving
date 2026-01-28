@@ -352,7 +352,8 @@
           const mortgageData = calculateMortgageYear({
             outstandingAmount: expense.outstandingAmount,
             interestRate: expense.interestRate,
-            remainingMonths: expense.remainingMonths
+            remainingMonths: expense.remainingMonths,
+            mortgageType: expense.mortgageType
           }, yearsActive + 1);
           hypotheekrente += mortgageData.interest;
         }
@@ -371,11 +372,22 @@
     };
     
     // Mortgage Calculation with Amortization
-    const calculateMortgageYear = ({ outstandingAmount, interestRate, remainingMonths }, yearsSinceStart) => {
+    const calculateMortgageYear = ({ outstandingAmount, interestRate, remainingMonths, mortgageType }, yearsSinceStart) => {
       const monthlyRate = (interestRate / 100) / 12;
       
+      // Interest-only (aflossingsvrij) mortgage: balance stays the same
+      if (mortgageType === 'interest-only') {
+        const annualInterest = outstandingAmount * (interestRate / 100);
+        return {
+          payment: annualInterest,
+          interest: annualInterest,
+          principal: 0,
+          remainingBalance: outstandingAmount // Balance never changes
+        };
+      }
+      
+      // Interest-free mortgage (0% rate): simple amortization
       if (!monthlyRate) {
-        // Interest-free: simple amortization
         const monthlyPayment = outstandingAmount / remainingMonths;
         const yearsElapsed = Math.min(yearsSinceStart, Math.floor(remainingMonths / 12));
         return {
@@ -420,8 +432,8 @@
       };
     };
     
-    const mortgagePaymentAnnual = ({ outstandingAmount, interestRate, remainingMonths }) => {
-      return calculateMortgageYear({ outstandingAmount, interestRate, remainingMonths }, 1).payment;
+    const mortgagePaymentAnnual = ({ outstandingAmount, interestRate, remainingMonths, mortgageType }) => {
+      return calculateMortgageYear({ outstandingAmount, interestRate, remainingMonths, mortgageType }, 1).payment;
     };
     
     // From cashflow.js
@@ -457,7 +469,8 @@
           const mortgageData = calculateMortgageYear({
             outstandingAmount: expense.outstandingAmount,
             interestRate: expense.interestRate,
-            remainingMonths: expense.remainingMonths
+            remainingMonths: expense.remainingMonths,
+            mortgageType: expense.mortgageType
           }, yearsActive + 1);
           
           totalExpenses += mortgageData.payment;
@@ -649,7 +662,8 @@
           const mortgageData = calculateMortgageYear({
             outstandingAmount: expense.outstandingAmount,
             interestRate: expense.interestRate,
-            remainingMonths: expense.remainingMonths
+            remainingMonths: expense.remainingMonths,
+            mortgageType: expense.mortgageType
           }, yearsActive + 1);
           mortgageLiability += mortgageData.remainingBalance;
           totalLiabilities += mortgageData.remainingBalance;
@@ -686,7 +700,8 @@
           const mortgageData = calculateMortgageYear({
             outstandingAmount: expense.outstandingAmount,
             interestRate: expense.interestRate,
-            remainingMonths: expense.remainingMonths
+            remainingMonths: expense.remainingMonths,
+            mortgageType: expense.mortgageType
           }, yearsActive + 1);
           mortgageLiability += mortgageData.remainingBalance;
         }
