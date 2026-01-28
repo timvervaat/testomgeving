@@ -1801,6 +1801,12 @@
           const currentYear = new Date().getFullYear();
           const endYear = currentYear + 50;
           
+          // Calculate current net worth from assets and liabilities
+          const totalAssets = calculateAssetsValue(assets, currentYear);
+          const propertyValue = calculatePropertyValue(assets, currentYear);
+          const liabilitiesData = calculateLiabilitiesValue(liabilities, expenseItems, currentYear);
+          const currentNetWorth = (totalAssets - propertyValue) - (liabilitiesData.totalLiabilities - liabilitiesData.mortgageLiability);
+          
           const timeline = projectNetWorth({
             startYear: currentYear,
             endYear: endYear,
