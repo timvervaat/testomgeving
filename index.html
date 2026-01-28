@@ -514,7 +514,7 @@
       return calculateMortgageYear({ outstandingAmount, interestRate, remainingMonths, mortgageType }, 1).payment;
     };
     
-    // From cashflow.js
+   // From cashflow.js
     const calculateAnnualCashflow = (year, incomes, expenses, assumptions = {}) => {
       if (typeof year !== 'number' || year < 1900) {
         throw new Error('Invalid year');
@@ -522,17 +522,197 @@
       
       const inflationRate = assumptions.inflationRate ?? 0;
       
-      let totalGrossIncome = 0;
+      // Bereken inkomen per partner
+      let partner1GrossIncome = 0;
+      let partner2GrossIncome = 0;
+      let toeslagenIncome = 0; // Toeslagen zijn niet belastbaar
       
       for (const income of incomes) {
         if (!isActiveInYear(income, year)) continue;
         
+        // Toeslagen tellen niet mee voor belastingberekening
+        if (['childcare', 'child-benefit', 'child-budget'].includes(income.category)) {
+          continue; // Skip, wordt later berekend
+        }
+        
         const baseYearly = yearlyAmount(income.amount, income.frequency);
-        const yearsActive = Math.max(0, year - income.startYear); // Safety: prevent negative
+        const yearsActive = Math.max(0, year - income.startYear);
         const grown = grow(baseYearly, income.growthRate ?? 0, yearsActive);
         
-        totalGrossIncome += grown;
+        // Verdeel inkomen per partner
+        if (income.partner === 'partner2') {
+          partner2GrossIncome += grown;
+        } else {
+          partner1GrossIncome += grown; // Default = partner1
+        }
       }
+      
+      const totalGrossIncome = partner1GrossIncome + partner2GrossIncome;
+      const heeftPartner2 = partner2GrossIncome > 0;
+      
+      // Track mortgage interest for tax deduction
+      let hypotheekrenteAftrek = 0;
+      let totalExpenses = 0;
+      
+      for (const expense of expenses) {
+        if (!isActiveInYear(expense, year)) continue;
+        
+        // Handle mortgage with amortization and interest deduction
+        if (expense.category === 'housing' && expense.mortgageType) {
+          const yearsActive = Math.max(0, year - expense.startYear);
+          const mortgageData = calculateMortgageYear({
+            outstandingAmount: expense.outstandingAmount,
+            interestRate: expense.interestRate,
+            remainingMonths: expense.remainingMonths,
+            mortgageType: expense.mortgageType
+          }, yearsActive);
+          
+          totalExpenses += mortgageData.payment;
+          hypotheekrenteAftrek += mortgageData.interest;
+          continue;
+        }
+        
+        const baseYearly = yearlyAmount(expense.amount, expense.frequency);
+        const yearsActive = Math.max(0, year - expense.startYear);
+        
+        const adjusted = expense.adjustForInflation
+          ? grow(baseYearly, inflationRate, yearsActive)
+          : baseYearly;
+        
+        totalExpenses += adjusted;
+      }
+      
+      // Verdeel hypotheekrenteaftrek 50/50 bij fiscaal partnerschap
+      const hypotheekrenteAftrekPartner1 = heeftPartner2 ? hypotheekrenteAftrek / 2 : hypotheekrenteAftrek;
+      const hypotheekrenteAftrekPartner2 = heeftPartner2 ? hypotheekrenteAftrek / 2 : 0;
+      
+      // Calculate IACK (gaat naar laagste inkomen)
+      let iack = 0;
+      const heeftKindOnder12 = incomes.some(inc => 
+        inc.category === 'child-benefit' && 
+        inc.metadata?.kinderenLeeftijden?.some(leeftijd => leeftijd < 12)
+      );
+      
+      if (heeftKindOnder12 && totalGrossIncome > 0) {
+        const ewf = berekenEigenwoningforfait(assumptions.wozWaarde || 0);
+        
+        // IACK berekenen voor laagste inkomen
+        let laagsteInkomen = partner1GrossIncome;
+        let laagsteInkomenHypotheekAftrek = hypotheekrenteAftrekPartner1;
+        
+        if (heeftPartner2 && partner2GrossIncome < partner1GrossIncome) {
+          laagsteInkomen = partner2GrossIncome;
+          laagsteInkomenHypotheekAftrek = hypotheekrenteAftrekPartner2;
+        }
+        
+        // IACK = inkomsten werk en woning van laagste inkomen
+        // Bij fiscaal partnerschap: elk 50% EWF
+        const ewfAandeel = heeftPartner2 ? ewf / 2 : ewf;
+        const inkomstenWerkWoning = laagsteInkomen + ewfAandeel - laagsteInkomenHypotheekAftrek;
+        iack = berekenIACK(inkomstenWerkWoning);
+      }
+      
+      // Bereken belasting per partner
+      let loonheffing1 = 0;
+      let werkelijkeBelasting1 = 0;
+      let teruggaafIB1 = 0;
+      
+      if (partner1GrossIncome > 0) {
+        loonheffing1 = calculateLoonheffing(partner1GrossIncome);
+        const taxableIncome1 = Math.max(0, partner1GrossIncome - hypotheekrenteAftrekPartner1);
+        
+        // IACK gaat naar laagste inkomen
+        const iackPartner1 = (!heeftPartner2 || partner1GrossIncome <= partner2GrossIncome) ? iack : 0;
+        const taxResult1 = calculateDutchTax2026(taxableIncome1, iackPartner1);
+        
+        werkelijkeBelasting1 = taxResult1.netTax;
+        teruggaafIB1 = loonheffing1 - werkelijkeBelasting1;
+      }
+      
+      let loonheffing2 = 0;
+      let werkelijkeBelasting2 = 0;
+      let teruggaafIB2 = 0;
+      
+      if (partner2GrossIncome > 0) {
+        loonheffing2 = calculateLoonheffing(partner2GrossIncome);
+        const taxableIncome2 = Math.max(0, partner2GrossIncome - hypotheekrenteAftrekPartner2);
+        
+        // IACK gaat naar laagste inkomen
+        const iackPartner2 = (partner2GrossIncome < partner1GrossIncome) ? iack : 0;
+        const taxResult2 = calculateDutchTax2026(taxableIncome2, iackPartner2);
+        
+        werkelijkeBelasting2 = taxResult2.netTax;
+        teruggaafIB2 = loonheffing2 - werkelijkeBelasting2;
+      }
+      
+      // Totalen
+      const totalLoonheffing = loonheffing1 + loonheffing2;
+      const totalWerkelijkeBelasting = werkelijkeBelasting1 + werkelijkeBelasting2;
+      const totalTeruggaafIB = teruggaafIB1 + teruggaafIB2;
+      const netIncome = totalGrossIncome - totalWerkelijkeBelasting;
+      
+      // Bereken toeslagen (netto, niet belastbaar)
+      let toeslagenTotaal = 0;
+      
+      // Toetsinkomen voor toeslagen = gezamenlijk netto inkomen
+      const toetsInkomen = netIncome;
+      
+      for (const income of incomes) {
+        if (!isActiveInYear(income, year)) continue;
+        
+        // Calculate inflation factor for toeslagen (delayed by 1 year)
+        const yearsActive = Math.max(0, year - income.startYear);
+        const inflationYears = Math.max(0, yearsActive - 1);
+        const inflationFactor = Math.pow(1 + inflationRate / 100, inflationYears);
+        
+        // Kinderopvangtoeslag
+        if (income.category === 'childcare' && income.metadata?.kinderen) {
+          toeslagenTotaal += berekenKinderopvangtoeslag(toetsInkomen, income.metadata.kinderen, inflationFactor);
+        }
+        
+        // Kinderbijslag
+        if (income.category === 'child-benefit' && income.metadata?.kinderenLeeftijden) {
+          toeslagenTotaal += berekenKinderbijslag(income.metadata.kinderenLeeftijden, inflationFactor);
+        }
+        
+        // Kindgebonden budget
+        if (income.category === 'child-budget' && income.metadata?.aantalKinderen) {
+          toeslagenTotaal += berekenKindgebondenBudget(
+            toetsInkomen, 
+            income.metadata.aantalKinderen, 
+            heeftPartner2, // fiscaalPartner = heeft partner 2
+            inflationFactor
+          );
+        }
+      }
+      
+      // Correct savings calculation: add toeslagen to available income
+      const totalAvailable = netIncome + toeslagenTotaal;
+      const netSavings = totalAvailable - totalExpenses;
+      
+      // Bereken effectief belastingtarief
+      const effectiveTaxRate = totalGrossIncome > 0 
+        ? Number((totalWerkelijkeBelasting / totalGrossIncome * 100).toFixed(2)) 
+        : 0;
+      
+      return {
+        year: Number(year),
+        grossIncome: Number(totalGrossIncome.toFixed(2)),
+        partner1GrossIncome: Number(partner1GrossIncome.toFixed(2)),
+        partner2GrossIncome: Number(partner2GrossIncome.toFixed(2)),
+        taxableIncome: Number((totalGrossIncome - hypotheekrenteAftrek).toFixed(2)),
+        loonheffing: Number(totalLoonheffing.toFixed(2)),
+        werkelijkeBelasting: Number(totalWerkelijkeBelasting.toFixed(2)),
+        teruggaafIB: Number(totalTeruggaafIB.toFixed(2)),
+        iack: Number(iack.toFixed(2)),
+        netIncome: Number(netIncome.toFixed(2)),
+        expenses: Number(totalExpenses.toFixed(2)),
+        savings: Number(netSavings.toFixed(2)),
+        toeslagen: Number(toeslagenTotaal.toFixed(2)),
+        hypotheekrenteAftrek: Number(hypotheekrenteAftrek.toFixed(2)),
+        effectiveTaxRate: effectiveTaxRate
+      };
+    };
       
       // Track mortgage interest for tax deduction
       let hypotheekrenteAftrek = 0;
