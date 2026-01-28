@@ -2348,6 +2348,14 @@
                       </div>
                     </div>
                   )}
+                  {projections?.timeline[0]?.cashflow?.teruggaafIB > 0 && (
+                    <KPICard 
+                      icon="💸"
+                      label="Teruggaaf IB (jaarlijks)"
+                      value={formatCurrency(projections.timeline[0].cashflow.teruggaafIB)}
+                      color="primary"
+                    />
+                  )}
                   <KPICard 
                     icon="💎"
                     label="Totale bezittingen"
