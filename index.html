@@ -2664,10 +2664,15 @@
                               <span className="font-semibold">€{projections.timeline[0].cashflow.iack.toFixed(0)}</span>
                             </div>
                           )}
-                          {projections.timeline[0].cashflow.hypotheekrenteAftrek > 0 && (
+                         {projections.timeline[0].cashflow.hypotheekrenteAftrek > 0 && (
                             <div className="flex justify-between text-blue-600">
                               <span>✓ Hypotheekrenteaftrek</span>
                               <span className="font-semibold">€{projections.timeline[0].cashflow.hypotheekrenteAftrek.toFixed(0)}</span>
+                            </div>
+                          )}
+                          {projections.timeline[0].cashflow.partner2GrossIncome > 0 && projections.timeline[0].cashflow.hypotheekrenteAftrek > 0 && (
+                            <div className="text-xs text-gray-500 italic pl-3">
+                              → Optimaal toegewezen aan hoogste inkomen
                             </div>
                           )}
                           <div className="border-t pt-1 mt-1">
