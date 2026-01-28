@@ -2225,10 +2225,10 @@
                     value={formatCurrency(targetNetWorth)}
                     color="secondary"
                   />
-                  <KPICard 
+                 <KPICard 
                     icon="📊"
-                    label="Huidig vermogen"
-                    value={formatCurrency(currentNetWorth)}
+                    label="Huidig liquide vermogen"
+                    value={projections?.timeline[0] ? formatCurrency(projections.timeline[0].liquidNetWorth) : formatCurrency(0)}
                     color="accent"
                   />
                   <KPICard 
