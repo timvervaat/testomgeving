@@ -354,7 +354,7 @@
             interestRate: expense.interestRate,
             remainingMonths: expense.remainingMonths,
             mortgageType: expense.mortgageType
-          }, yearsActive + 1);
+          }, yearsActive);
           hypotheekrente += mortgageData.interest;
         }
       }
@@ -399,9 +399,23 @@
       }
       
       // Annuity calculation
+      // NOTE: outstandingAmount is the CURRENT balance (not original principal)
+      // So for yearsSinceStart = 0, we return current balance
+      // For yearsSinceStart > 0, we calculate forward from current balance
+      
       const monthlyPayment = outstandingAmount * (monthlyRate / (1 - Math.pow(1 + monthlyRate, -remainingMonths)));
       
-      // Calculate balance after yearsSinceStart years
+      if (yearsSinceStart === 0) {
+        // Return current state (no time elapsed)
+        return {
+          payment: monthlyPayment * 12,
+          interest: outstandingAmount * (interestRate / 100),
+          principal: (monthlyPayment * 12) - (outstandingAmount * (interestRate / 100)),
+          remainingBalance: outstandingAmount
+        };
+      }
+      
+      // Calculate balance after yearsSinceStart years from current balance
       let balance = outstandingAmount;
       let totalInterestThisYear = 0;
       
@@ -471,7 +485,7 @@
             interestRate: expense.interestRate,
             remainingMonths: expense.remainingMonths,
             mortgageType: expense.mortgageType
-          }, yearsActive + 1);
+          }, yearsActive);
           
           totalExpenses += mortgageData.payment;
           hypotheekrenteAftrek += mortgageData.interest; // Interest is tax deductible
@@ -664,7 +678,7 @@
             interestRate: expense.interestRate,
             remainingMonths: expense.remainingMonths,
             mortgageType: expense.mortgageType
-          }, yearsActive + 1);
+          }, yearsActive); // Balance at START of this year
           mortgageLiability += mortgageData.remainingBalance;
           totalLiabilities += mortgageData.remainingBalance;
         }
@@ -702,7 +716,7 @@
             interestRate: expense.interestRate,
             remainingMonths: expense.remainingMonths,
             mortgageType: expense.mortgageType
-          }, yearsActive + 1);
+          }, yearsActive); // Balance at START of this year (before payments)
           mortgageLiability += mortgageData.remainingBalance;
         }
       });
