@@ -251,7 +251,7 @@
         }
       }
       
-      const totalCredits = algemene + arbeid;
+      const totalCredits = algemene + arbeid + iack;
       const netTax = Math.max(0, tax - totalCredits);
       const netIncome = grossIncome - netTax;
       
@@ -259,11 +259,11 @@
         grossIncome,
         incomeTax: Number(tax.toFixed(2)),
         credits: Number(totalCredits.toFixed(2)),
+        iack: Number(iack.toFixed(2)),
         netTax: Number(netTax.toFixed(2)),
         netIncome: Number(netIncome.toFixed(2)),
         effectiveRate: grossIncome > 0 ? Number(((netTax / grossIncome) * 100).toFixed(2)) : 0
       };
-    };
     
     // Bereken kindgebonden budget (netto toeslag)
     const berekenKindgebondenBudget = (toetsInkomen, aantalKinderen, fiscaalPartner, inflationFactor = 1) => {
