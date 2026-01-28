@@ -582,9 +582,29 @@
         totalExpenses += adjusted;
       }
       
-      // Verdeel hypotheekrenteaftrek 50/50 bij fiscaal partnerschap
-      const hypotheekrenteAftrekPartner1 = heeftPartner2 ? hypotheekrenteAftrek / 2 : hypotheekrenteAftrek;
-      const hypotheekrenteAftrekPartner2 = heeftPartner2 ? hypotheekrenteAftrek / 2 : 0;
+     // Bereken EWF
+      const ewf = berekenEigenwoningforfait(assumptions.wozWaarde || 0);
+      
+      // OPTIMALE VERDELING: hypotheekrenteaftrek en EWF naar hoogste inkomen voor maximaal fiscaal voordeel
+      // Hoogste inkomen zit in hogere belastingschijf → meer aftrek waard
+      let hypotheekrenteAftrekPartner1 = 0;
+      let hypotheekrenteAftrekPartner2 = 0;
+      let ewfPartner1 = 0;
+      let ewfPartner2 = 0;
+      
+      if (heeftPartner2) {
+        // Geef ALLE aftrekposten aan hoogste inkomen
+        if (partner1GrossIncome >= partner2GrossIncome) {
+          hypotheekrenteAftrekPartner1 = hypotheekrenteAftrek;
+          ewfPartner1 = ewf;
+        } else {
+          hypotheekrenteAftrekPartner2 = hypotheekrenteAftrek;
+          ewfPartner2 = ewf;
+        }
+      } else {
+        hypotheekrenteAftrekPartner1 = hypotheekrenteAftrek;
+        ewfPartner1 = ewf;
+      }
       
       // Calculate IACK (gaat naar laagste inkomen)
       let iack = 0;
@@ -594,21 +614,19 @@
       );
       
       if (heeftKindOnder12 && totalGrossIncome > 0) {
-        const ewf = berekenEigenwoningforfait(assumptions.wozWaarde || 0);
-        
         // IACK berekenen voor laagste inkomen
         let laagsteInkomen = partner1GrossIncome;
+        let laagsteInkomenEWF = ewfPartner1;
         let laagsteInkomenHypotheekAftrek = hypotheekrenteAftrekPartner1;
         
         if (heeftPartner2 && partner2GrossIncome < partner1GrossIncome) {
           laagsteInkomen = partner2GrossIncome;
+          laagsteInkomenEWF = ewfPartner2;
           laagsteInkomenHypotheekAftrek = hypotheekrenteAftrekPartner2;
         }
         
         // IACK = inkomsten werk en woning van laagste inkomen
-        // Bij fiscaal partnerschap: elk 50% EWF
-        const ewfAandeel = heeftPartner2 ? ewf / 2 : ewf;
-        const inkomstenWerkWoning = laagsteInkomen + ewfAandeel - laagsteInkomenHypotheekAftrek;
+        const inkomstenWerkWoning = laagsteInkomen + laagsteInkomenEWF - laagsteInkomenHypotheekAftrek;
         iack = berekenIACK(inkomstenWerkWoning);
       }
       
