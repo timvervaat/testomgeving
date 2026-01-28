@@ -212,7 +212,7 @@
       { van: 235698, tot: Infinity, percEerste: 0.365, percVolgend: 0.682 }
     ];
     
-    const calculateDutchTax2026 = (grossIncome) => {
+   const calculateDutchTax2026 = (grossIncome, iack = 0) => {
       if (typeof grossIncome !== 'number' || grossIncome < 0) {
         throw new Error('grossIncome must be a non-negative number');
       }
