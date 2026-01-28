@@ -265,6 +265,53 @@
         effectiveRate: grossIncome > 0 ? Number(((netTax / grossIncome) * 100).toFixed(2)) : 0
       };
     
+   };
+    };
+    
+    // Bereken loonheffing (inhouding door werkgever, zonder rekening te houden met hypotheek/kortingen)
+    const calculateLoonheffing = (grossIncome) => {
+      // Loonheffing wordt berekend ZONDER hypotheekrenteaftrek
+      // Werkgever kent geen hypotheek, dus houdt in alsof er geen aftrekposten zijn
+      
+      let tax = 0;
+      let remaining = grossIncome;
+      let previousLimit = 0;
+      
+      for (const bracket of TAX_BRACKETS_2026) {
+        const bracketSize = Math.min(remaining, bracket.limit - previousLimit);
+        if (bracketSize <= 0) break;
+        
+        tax += bracketSize * (bracket.rate / 100);
+        remaining -= bracketSize;
+        previousLimit = bracket.limit;
+        
+        if (remaining <= 0) break;
+      }
+      
+      // Loonheffing = belasting - alleen AHK en AK (geen IACK, want werkgever kent je gezinssituatie niet)
+      let algemene = TAX_CREDITS_2026.algemeneMax;
+      if (grossIncome > TAX_CREDITS_2026.algemeneAfbouwStart) {
+        const excess = grossIncome - TAX_CREDITS_2026.algemeneAfbouwStart;
+        algemene -= excess * (TAX_CREDITS_2026.algemeneAfbouwPercentage / 100);
+        algemene = Math.max(0, algemene);
+      }
+      
+      let arbeid = 0;
+      if (grossIncome <= TAX_CREDITS_2026.arbeidLowThreshold) {
+        arbeid = grossIncome * (TAX_CREDITS_2026.arbeidBuildRateLow / 100);
+      } else {
+        arbeid = TAX_CREDITS_2026.arbeidMax;
+        if (grossIncome > TAX_CREDITS_2026.arbeidPhaseoutStart) {
+          const excess = grossIncome - TAX_CREDITS_2026.arbeidPhaseoutStart;
+          arbeid -= excess * (TAX_CREDITS_2026.arbeidPhaseoutRate / 100);
+          arbeid = Math.max(0, arbeid);
+        }
+      }
+      
+      const totalCredits = algemene + arbeid;
+      return Math.max(0, tax - totalCredits);
+    };
+    
     // Bereken kindgebonden budget (netto toeslag)
     const berekenKindgebondenBudget = (toetsInkomen, aantalKinderen, fiscaalPartner, inflationFactor = 1) => {
       if (aantalKinderen === 0) return 0;
