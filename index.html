@@ -582,10 +582,19 @@
         iack = berekenIACK(inkomstenWerkWoning);
       }
       
-      // Apply mortgage interest deduction to taxable income (Box 1)
+     // Bereken loonheffing (wat werkgever inhoudt)
+      const loonheffing = calculateLoonheffing(totalGrossIncome);
+      
+      // Bereken werkelijke belastingschuld (met hypotheekrenteaftrek en IACK)
       const taxableIncome = Math.max(0, totalGrossIncome - hypotheekrenteAftrek);
       const taxResult = calculateDutchTax2026(taxableIncome, iack);
-      const netIncome = totalGrossIncome - taxResult.netTax; // Gross - tax (on reduced taxable income)
+      
+      // Teruggaaf = ingehouden loonheffing - werkelijke belastingschuld
+      const teruggaafIB = loonheffing - taxResult.netTax;
+      
+      // Netto cashflow = bruto - loonheffing + teruggaaf
+      // Of simpeler: bruto - werkelijke belasting
+      const netIncome = totalGrossIncome - taxResult.netTax;
       
       // Bereken toeslagen (netto, niet belastbaar)
       let toeslagenTotaal = 0;
