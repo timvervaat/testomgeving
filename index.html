@@ -639,9 +639,13 @@
         year: Number(year),
         grossIncome: Number(totalGrossIncome.toFixed(2)),
         taxableIncome: Number(taxableIncome.toFixed(2)),
+        loonheffing: Number(loonheffing.toFixed(2)),
+        werkelijkeBelasting: Number(taxResult.netTax.toFixed(2)),
+        teruggaafIB: Number(teruggaafIB.toFixed(2)),
+        iack: Number((taxResult.iack || 0).toFixed(2)),
         netIncome: Number(netIncome.toFixed(2)),
         expenses: Number(totalExpenses.toFixed(2)),
-        savings: Number(netSavings.toFixed(2)), // Now includes toeslagen benefit
+        savings: Number(netSavings.toFixed(2)),
         toeslagen: Number(toeslagenTotaal.toFixed(2)),
         hypotheekrenteAftrek: Number(hypotheekrenteAftrek.toFixed(2)),
         effectiveTaxRate: taxableIncome > 0 ? Number((taxResult.netTax / totalGrossIncome * 100).toFixed(2)) : 0
