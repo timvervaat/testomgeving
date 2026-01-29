@@ -364,26 +364,32 @@ const BOX3_2026 = {
     };
     
     // Bereken kinderbijslag (netto toeslag)
-    const berekenKinderbijslag = (leeftijden, inflationFactor = 1) => {
-      if (!leeftijden || leeftijden.length === 0) return 0;
-      
-      const { KINDERBIJSLAG } = TOESLAGEN_2026;
-      let totaalJaar = 0;
-      
-      leeftijden.forEach((leeftijd) => {
-        let config = null;
-        
-        if (leeftijd >= 0 && leeftijd <= 5) config = KINDERBIJSLAG.LEEFTIJD_0_5;
-        else if (leeftijd >= 6 && leeftijd <= 11) config = KINDERBIJSLAG.LEEFTIJD_6_11;
-        else if (leeftijd >= 12 && leeftijd <= 17) config = KINDERBIJSLAG.LEEFTIJD_12_17;
-        
-        if (config) {
-          totaalJaar += config.kwartaal * 4 * inflationFactor;
-        }
-      });
-      
-      return totaalJaar;
-    };
+   const berekenKinderbijslag = (leeftijden, inflationFactor = 1, yearsElapsed = 0) => {
+  if (!leeftijden || leeftijden.length === 0) return 0;
+  
+  const { KINDERBIJSLAG } = TOESLAGEN_2026;
+  let totaalJaar = 0;
+  
+  leeftijden.forEach((startLeeftijd) => {
+    // Bereken huidige leeftijd
+    const leeftijd = startLeeftijd + yearsElapsed;
+    
+    // Stop met uitkeren na 18 jaar
+    if (leeftijd > 17) return;
+    
+    let config = null;
+    
+    if (leeftijd >= 0 && leeftijd <= 5) config = KINDERBIJSLAG.LEEFTIJD_0_5;
+    else if (leeftijd >= 6 && leeftijd <= 11) config = KINDERBIJSLAG.LEEFTIJD_6_11;
+    else if (leeftijd >= 12 && leeftijd <= 17) config = KINDERBIJSLAG.LEEFTIJD_12_17;
+    
+    if (config) {
+      totaalJaar += config.kwartaal * 4 * inflationFactor;
+    }
+  });
+  
+  return totaalJaar;
+};
     
    // Bereken IACK (alleen voor minstverdienende met kind <12)
     const berekenIACK = (inkomstenWerkWoning) => {
