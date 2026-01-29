@@ -784,11 +784,20 @@ const ewf = berekenEigenwoningforfait(
       }
       
       // Calculate IACK (gaat naar laagste inkomen)
-      let iack = 0;
-      const heeftKindOnder12 = incomes.some(inc => 
-        inc.category === 'child-benefit' && 
-        inc.metadata?.kinderenLeeftijden?.some(leeftijd => leeftijd < 12)
-      );
+let iack = 0;
+const heeftKindOnder12 = incomes.some(inc => {
+  if (inc.category !== 'child-benefit') return false;
+  if (!inc.metadata?.kinderenLeeftijden) return false;
+  
+  // Bereken yearsElapsed voor dit inkomen
+  const yearsElapsed = Math.max(0, year - inc.startYear);
+  
+  // Check of er een kind onder 12 is na jaren verstreken
+  return inc.metadata.kinderenLeeftijden.some(startLeeftijd => {
+    const huidigeLeeftijd = startLeeftijd + yearsElapsed;
+    return huidigeLeeftijd < 12;
+  });
+});
       
       if (heeftKindOnder12 && totalGrossIncome > 0) {
         // IACK berekenen voor laagste inkomen
