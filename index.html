@@ -925,10 +925,15 @@ const toetsInkomen = berekenToetsinkomen(
           toeslagenTotaal += berekenKinderopvangtoeslag(toetsInkomen, income.metadata.kinderen, inflationFactor);
         }
         
-        // Kinderbijslag
-        if (income.category === 'child-benefit' && income.metadata?.kinderenLeeftijden) {
-          toeslagenTotaal += berekenKinderbijslag(income.metadata.kinderenLeeftijden, inflationFactor);
-        }
+    // Kinderbijslag
+if (income.category === 'child-benefit' && income.metadata?.kinderenLeeftijden) {
+  const yearsElapsed = Math.max(0, year - income.startYear);
+  toeslagenTotaal += berekenKinderbijslag(
+    income.metadata.kinderenLeeftijden, 
+    inflationFactor,
+    yearsElapsed
+  );
+}
         
         // Kindgebonden budget
         if (income.category === 'child-budget' && income.metadata?.aantalKinderen) {
