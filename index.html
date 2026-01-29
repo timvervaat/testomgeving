@@ -500,14 +500,17 @@ const BOX3_2026 = {
     };
     
    // Eigenwoningforfait berekening (2026)
-    const berekenEigenwoningforfait = (wozWaarde) => {
-      const woz = parseFloat(wozWaarde) || 0;
-      
-      if (woz <= 75000) return 0;
-      if (woz <= 1350000) return woz * 0.0035;
-      
-      return 4725 + (woz - 1350000) * 0.0235;
-    };
+   const berekenEigenwoningforfait = (wozWaarde, year, startYear, wozInflationRate = 0) => {
+  // Pas WOZ aan voor huizenprijsinflatie
+  const yearsElapsed = year - startYear;
+  const inflatedWoz = wozWaarde * Math.pow(1 + wozInflationRate / 100, yearsElapsed);
+  const woz = parseFloat(inflatedWoz) || 0;
+  
+  if (woz <= 75000) return 0;
+  if (woz <= 1350000) return woz * 0.0035;
+  
+  return 4725 + (woz - 1350000) * 0.0235;
+};
     
     // Bereken Box 3 fictief rendement (2026)
     const berekenBox3FictiefRendement = (vermogen, heeftPartner) => {
