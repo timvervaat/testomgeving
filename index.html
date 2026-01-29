@@ -1134,8 +1134,43 @@ const toetsInkomen = berekenToetsinkomen(
     };
     
     // Calculate actual toeslag amount for display based on current data
-    const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde) => {
-      const toetsinkomen = berekenToetsinkomen(incomes, expenses, year, wozWaarde);
+    const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde, assets = [], liabilities = []) => {
+  // Bereken vermogen voor dit jaar
+  const vermogen = {
+    cash: 0,
+    stocks: 0,
+    crypto: 0,
+    other: 0,
+    liabilities: 0
+  };
+  
+  assets.forEach(asset => {
+    if (year >= asset.startYear) {
+      const yearsActive = year - asset.startYear;
+      const currentValue = grow(asset.value, asset.growthRate || 0, yearsActive);
+      
+      if (asset.box3Type === 'bank') {
+        vermogen.cash += currentValue;
+      } else if (asset.type === 'stocks') {
+        vermogen.stocks += currentValue;
+      } else if (asset.type === 'crypto') {
+        vermogen.crypto += currentValue;
+      } else if (asset.type === 'cash') {
+        vermogen.cash += currentValue;
+      } else {
+        vermogen.other += currentValue;
+      }
+    }
+  });
+  
+  liabilities.forEach(liability => {
+    if (year >= liability.startYear) {
+      vermogen.liabilities += liability.amount;
+    }
+  });
+  
+  const heeftPartner2 = incomes.some(inc => inc.partner === 'partner2');
+  const toetsinkomen = berekenToetsinkomen(incomes, expenses, year, wozWaarde, vermogen, heeftPartner2);
       
       if (item.category === 'childcare' && item.metadata?.kinderen) {
         return berekenKinderopvangtoeslag(toetsinkomen, item.metadata.kinderen);
