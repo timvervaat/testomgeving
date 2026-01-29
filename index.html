@@ -441,7 +441,13 @@ const BOX3_2026 = {
       }
       
       // EWF
-      const ewf = berekenEigenwoningforfait(wozWaarde || 0);
+      const startYear = new Date().getFullYear();
+const ewf = berekenEigenwoningforfait(
+  wozWaarde || 0, 
+  year, 
+  startYear, 
+  assumptions?.wozInflationRate || 0
+);
       
       // Optimale verdeling
       let hypotheekrenteAftrekPartner1 = 0;
