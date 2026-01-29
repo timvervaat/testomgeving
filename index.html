@@ -1259,7 +1259,7 @@ const toetsInkomen = berekenToetsinkomen(
                   {['childcare', 'child-benefit', 'child-budget'].includes(item.category) ? (
                     <>
                       <span className="font-semibold text-primary">
-                        {formatCurrency(calculateToeslagAmount(item, incomes || [], expenses || [], new Date().getFullYear(), wozWaarde || 0))} / jaar
+                        {formatCurrency(calculateToeslagAmount(item, incomes || [], expenses || [], new Date().getFullYear(), wozWaarde || 0, assets, liabilities))} / jaar
                       </span>
                     </>
                   ) : (
