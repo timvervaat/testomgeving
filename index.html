@@ -463,8 +463,21 @@
         netIncome2 = partner2GrossIncome - taxResult2.netTax;
       }
       
-      // Toetsinkomen = gezamenlijk netto box 1 inkomen
-      return netIncome1 + netIncome2;
+      // Toetsinkomen = verzamelinkomen = box 1 (bruto - aftrek + EWF) + box 3 fictief rendement
+// Box 1: bruto - hypotheekrente + EWF (NIET na belasting!)
+const box1Income1 = partner1GrossIncome > 0 
+  ? partner1GrossIncome - hypotheekrenteAftrekPartner1 + ewfPartner1 
+  : 0;
+  
+const box1Income2 = partner2GrossIncome > 0 
+  ? partner2GrossIncome - hypotheekrenteAftrekPartner2 + ewfPartner2 
+  : 0;
+
+const totalBox1 = box1Income1 + box1Income2;
+
+// TODO: Box 3 fictief rendement toevoegen wanneer vermogen > vrijstelling
+// Voor nu: verzamelinkomen ≈ box 1 inkomen
+return totalBox1;
     };
     
     // Eigenwoningforfait berekening (2026)
