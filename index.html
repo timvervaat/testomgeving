@@ -768,8 +768,15 @@ return totalBox1;
       // Bereken toeslagen (netto, niet belastbaar)
       let toeslagenTotaal = 0;
       
-      // Toetsinkomen voor toeslagen = gezamenlijk netto inkomen
-      const toetsInkomen = netIncome;
+   // Bereken verzamelinkomen voor toeslagen (box 1 + box 3)
+// Box 1 = bruto - hypotheekrente + EWF (VOOR belasting)
+const box1Partner1 = partner1GrossIncome - hypotheekrenteAftrekPartner1 + ewfPartner1;
+const box1Partner2 = partner2GrossIncome - hypotheekrenteAftrekPartner2 + ewfPartner2;
+const totalBox1 = box1Partner1 + box1Partner2;
+
+// TODO: Voeg box 3 fictief rendement toe
+// Voor nu: verzamelinkomen ≈ box 1
+const toetsInkomen = totalBox1;
       
       for (const income of incomes) {
         if (!isActiveInYear(income, year)) continue;
