@@ -1026,10 +1026,24 @@
     
     // Calculate actual toeslag amount for display based on current data
     const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde) => {
-      const verzamelinkomen = berekenVerzamelinkomen(incomes, expenses, year, wozWaarde);
+      const toetsinkomen = berekenToetsinkomen(incomes, expenses, year, wozWaarde);
       
       if (item.category === 'childcare' && item.metadata?.kinderen) {
-        return berekenKinderopvangtoeslag(verzamelinkomen, item.metadata.kinderen);
+        return berekenKinderopvangtoeslag(toetsinkomen, item.metadata.kinderen);
+      }
+      
+      if (item.category === 'child-benefit' && item.metadata?.kinderenLeeftijden) {
+        return berekenKinderbijslag(item.metadata.kinderenLeeftijden);
+      }
+      
+      if (item.category === 'child-budget' && item.metadata?.aantalKinderen) {
+        // Check of er partner 2 is
+        const heeftPartner2 = incomes.some(inc => inc.partner === 'partner2');
+        return berekenKindgebondenBudget(
+          toetsinkomen,
+          item.metadata.aantalKinderen,
+          heeftPartner2
+        );
       }
       
       if (item.category === 'child-benefit' && item.metadata?.kinderenLeeftijden) {
