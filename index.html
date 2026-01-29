@@ -51,12 +51,13 @@
     // ============================================
     
     // From assumptions.js
-    const defaultAssumptions = Object.freeze({
-      inflationRate: 2.0,
-      investmentReturn: 7.0,
-      safeWithdrawalRate: 4.0,
-      targetNetWorth: 1_500_000,
-    });
+const defaultAssumptions = Object.freeze({
+  inflationRate: 2.0,
+  investmentReturn: 7.0,
+  safeWithdrawalRate: 4.0,
+  targetNetWorth: 1_500_000,
+  wozInflationRate: 3.0, // Huizenprijsinflatie (vaak hoger dan algemene inflatie)
+});
     
     // From helpers.js
     const yearlyAmount = (amount, frequency) => {
