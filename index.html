@@ -493,7 +493,7 @@ const totalBox1 = box1Income1 + box1Income2;
 return totalBox1;
     };
     
-    // Eigenwoningforfait berekening (2026)
+   // Eigenwoningforfait berekening (2026)
     const berekenEigenwoningforfait = (wozWaarde) => {
       const woz = parseFloat(wozWaarde) || 0;
       
@@ -501,6 +501,45 @@ return totalBox1;
       if (woz <= 1350000) return woz * 0.0035;
       
       return 4725 + (woz - 1350000) * 0.0235;
+    };
+    
+    // Bereken Box 3 fictief rendement (2026)
+    const berekenBox3FictiefRendement = (vermogen, heeftPartner) => {
+      // Splits vermogen in categorieën
+      const banktegoeden = vermogen.cash || 0;
+      const beleggingen = (vermogen.stocks || 0) + (vermogen.crypto || 0) + (vermogen.other || 0);
+      const schulden = vermogen.liabilities || 0;
+      
+      const totaalBezit = banktegoeden + beleggingen;
+      
+      // Check heffingsvrij vermogen
+      const vrijstelling = heeftPartner 
+        ? BOX3_2026.VRIJSTELLING_PARTNER 
+        : BOX3_2026.VRIJSTELLING_ENKEL;
+      
+      if (totaalBezit <= vrijstelling) {
+        return 0; // Geen box 3 belasting
+      }
+      
+      // Bereken belastbaar vermogen per categorie
+      const belastbaarVermogen = totaalBezit - vrijstelling;
+      
+      // Verdeel belastbaar vermogen proportioneel over categorieën
+      const totaalBezitExclSchuld = totaalBezit;
+      const ratioBank = totaalBezitExclSchuld > 0 ? banktegoeden / totaalBezitExclSchuld : 0;
+      const ratioBeleggingen = totaalBezitExclSchuld > 0 ? beleggingen / totaalBezitExclSchuld : 0;
+      
+      const belastbaarBank = belastbaarVermogen * ratioBank;
+      const belastbaarBeleggingen = belastbaarVermogen * ratioBeleggingen;
+      
+      // Bereken fictief rendement per categorie
+      const rendementBank = belastbaarBank * BOX3_2026.RENDEMENT.BANKTEGOEDEN;
+      const rendementBeleggingen = belastbaarBeleggingen * BOX3_2026.RENDEMENT.BELEGGINGEN;
+      const rendementSchuld = schulden * BOX3_2026.RENDEMENT.SCHULDEN; // Aftrekbaar
+      
+      const totaalFictiefRendement = rendementBank + rendementBeleggingen - rendementSchuld;
+      
+      return Math.max(0, totaalFictiefRendement);
     };
     
     // Calculate verzamelinkomen (for toeslagen calculation)
