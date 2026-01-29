@@ -384,6 +384,89 @@
       return IACK.MAX; // €3.032
     };
     
+    // Centrale functie voor toetsinkomen berekening (voor toeslagen)
+    const berekenToetsinkomen = (incomes, expenses, year, wozWaarde) => {
+      // Toetsinkomen = verzamelinkomen = box 1 inkomen (na belasting en aftrek)
+      // Dit is het inkomen dat de overheid gebruikt voor toeslagenberekening
+      
+      let partner1GrossIncome = 0;
+      let partner2GrossIncome = 0;
+      
+      for (const income of incomes) {
+        if (!isActiveInYear(income, year)) continue;
+        if (['childcare', 'child-benefit', 'child-budget'].includes(income.category)) continue;
+        
+        const baseYearly = yearlyAmount(income.amount, income.frequency);
+        const yearsActive = Math.max(0, year - income.startYear);
+        const grown = grow(baseYearly, income.growthRate ?? 0, yearsActive);
+        
+        if (income.partner === 'partner2') {
+          partner2GrossIncome += grown;
+        } else {
+          partner1GrossIncome += grown;
+        }
+      }
+      
+      const totalGrossIncome = partner1GrossIncome + partner2GrossIncome;
+      const heeftPartner2 = partner2GrossIncome > 0;
+      
+      // Bereken hypotheekrente
+      let hypotheekrenteAftrek = 0;
+      for (const expense of expenses) {
+        if (!isActiveInYear(expense, year)) continue;
+        if (expense.category === 'housing' && expense.mortgageType) {
+          const yearsActive = Math.max(0, year - expense.startYear);
+          const mortgageData = calculateMortgageYear({
+            outstandingAmount: expense.outstandingAmount,
+            interestRate: expense.interestRate,
+            remainingMonths: expense.remainingMonths,
+            mortgageType: expense.mortgageType
+          }, yearsActive);
+          hypotheekrenteAftrek += mortgageData.interest;
+        }
+      }
+      
+      // EWF
+      const ewf = berekenEigenwoningforfait(wozWaarde || 0);
+      
+      // Optimale verdeling
+      let hypotheekrenteAftrekPartner1 = 0;
+      let hypotheekrenteAftrekPartner2 = 0;
+      let ewfPartner1 = 0;
+      let ewfPartner2 = 0;
+      
+      if (heeftPartner2) {
+        if (partner1GrossIncome >= partner2GrossIncome) {
+          hypotheekrenteAftrekPartner1 = hypotheekrenteAftrek;
+          ewfPartner1 = ewf;
+        } else {
+          hypotheekrenteAftrekPartner2 = hypotheekrenteAftrek;
+          ewfPartner2 = ewf;
+        }
+      } else {
+        hypotheekrenteAftrekPartner1 = hypotheekrenteAftrek;
+        ewfPartner1 = ewf;
+      }
+      
+      // Bereken belasting per partner (simpel, zonder IACK want die komt later)
+      let netIncome1 = 0;
+      if (partner1GrossIncome > 0) {
+        const taxableIncome1 = Math.max(0, partner1GrossIncome - hypotheekrenteAftrekPartner1 + ewfPartner1);
+        const taxResult1 = calculateDutchTax2026(taxableIncome1, 0);
+        netIncome1 = partner1GrossIncome - taxResult1.netTax;
+      }
+      
+      let netIncome2 = 0;
+      if (partner2GrossIncome > 0) {
+        const taxableIncome2 = Math.max(0, partner2GrossIncome - hypotheekrenteAftrekPartner2 + ewfPartner2);
+        const taxResult2 = calculateDutchTax2026(taxableIncome2, 0);
+        netIncome2 = partner2GrossIncome - taxResult2.netTax;
+      }
+      
+      // Toetsinkomen = gezamenlijk netto box 1 inkomen
+      return netIncome1 + netIncome2;
+    };
+    
     // Eigenwoningforfait berekening (2026)
     const berekenEigenwoningforfait = (wozWaarde) => {
       const woz = parseFloat(wozWaarde) || 0;
