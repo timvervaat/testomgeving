@@ -2515,15 +2515,17 @@ const toetsInkomen = berekenToetsinkomen(
                     </h2>
                     <button onClick={addIncome} className="text-primary hover:text-primary-dark text-xl" title="Voeg inkomen toe">+</button>
                   </div>
-                  <ItemList 
-                    items={incomeItems} 
-                    type="income" 
-                    onEdit={editItem} 
-                    onDelete={deleteItem}
-                    incomes={incomeItems}
-                    expenses={expenseItems}
-                    wozWaarde={wozWaarde}
-                  />
+                <ItemList 
+  items={incomeItems} 
+  type="income" 
+  onEdit={editItem} 
+  onDelete={deleteItem}
+  incomes={incomeItems}
+  expenses={expenseItems}
+  wozWaarde={wozWaarde}
+  assets={assets}
+  liabilities={liabilities}
+/>
                 </div>
                 
                 <div className="bg-white rounded-lg shadow p-4">
