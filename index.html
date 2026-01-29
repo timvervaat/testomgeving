@@ -1205,7 +1205,7 @@ const toetsInkomen = berekenToetsinkomen(
       return 0;
     };
 
-    function ItemList({ items, type, onEdit, onDelete, incomes, expenses, wozWaarde }) {
+    function ItemList({ items, type, onEdit, onDelete, incomes, expenses, wozWaarde, assets = [], liabilities = [] }) {
       if (items.length === 0) {
         return (
           <div className="text-sm text-gray-400 italic py-2">
