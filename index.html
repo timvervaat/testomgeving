@@ -841,15 +841,59 @@ const ewf = berekenEigenwoningforfait(
       // Bereken toeslagen (netto, niet belastbaar)
       let toeslagenTotaal = 0;
       
-   // Bereken verzamelinkomen voor toeslagen (box 1 + box 3)
+  // Bereken verzamelinkomen voor toeslagen (box 1 + box 3)
 // Box 1 = bruto - hypotheekrente + EWF (VOOR belasting)
 const box1Partner1 = partner1GrossIncome - hypotheekrenteAftrekPartner1 + ewfPartner1;
 const box1Partner2 = partner2GrossIncome - hypotheekrenteAftrekPartner2 + ewfPartner2;
 const totalBox1 = box1Partner1 + box1Partner2;
 
-// TODO: Voeg box 3 fictief rendement toe
-// Voor nu: verzamelinkomen ≈ box 1
-const toetsInkomen = totalBox1;
+// Bereken vermogen voor Box 3
+const vermogen = {
+  cash: 0,
+  stocks: 0,
+  crypto: 0,
+  other: 0,
+  liabilities: 0
+};
+
+// Aggregeer vermogen per box3Type uit assets
+assets.forEach(asset => {
+  if (year >= asset.startYear) {
+    const yearsActive = year - asset.startYear;
+    const currentValue = grow(asset.value, asset.growthRate || 0, yearsActive);
+    
+    // Map box3Type naar vermogen categorieën
+    if (asset.box3Type === 'bank') {
+      vermogen.cash += currentValue;
+    } else if (asset.type === 'stocks') {
+      vermogen.stocks += currentValue;
+    } else if (asset.type === 'crypto') {
+      vermogen.crypto += currentValue;
+    } else if (asset.type === 'cash') {
+      // Cash zonder box3Type → spaargeld
+      vermogen.cash += currentValue;
+    } else {
+      vermogen.other += currentValue;
+    }
+  }
+});
+
+// Voeg overige schulden toe (excl hypotheek)
+liabilities.forEach(liability => {
+  if (year >= liability.startYear) {
+    vermogen.liabilities += liability.amount;
+  }
+});
+
+// Bereken verzamelinkomen (box 1 + box 3)
+const toetsInkomen = berekenToetsinkomen(
+  incomes, 
+  expenses, 
+  year, 
+  assumptions.wozWaarde || 0,
+  vermogen,
+  heeftPartner2
+);
       
       for (const income of incomes) {
         if (!isActiveInYear(income, year)) continue;
