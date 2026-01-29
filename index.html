@@ -778,9 +778,6 @@
         iack = berekenIACK(inkomstenWerkWoning);
       }
       
-     // Bereken loonheffing (wat werkgever inhoudt)
-      const loonheffing = calculateLoonheffing(totalGrossIncome);
-      
       // Bereken werkelijke belastingschuld (met hypotheekrenteaftrek en IACK)
       const taxableIncome = Math.max(0, totalGrossIncome - hypotheekrenteAftrek);
       const taxResult = calculateDutchTax2026(taxableIncome, iack);
