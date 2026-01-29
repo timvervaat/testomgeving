@@ -746,7 +746,13 @@ const ewf = berekenEigenwoningforfait(
       }
       
      // Bereken EWF
-      const ewf = berekenEigenwoningforfait(assumptions.wozWaarde || 0);
+      const startYear = new Date().getFullYear();
+const ewf = berekenEigenwoningforfait(
+  assumptions.wozWaarde || 0,
+  year,
+  startYear,
+  assumptions.wozInflationRate || 0
+);
       
       // OPTIMALE VERDELING: hypotheekrenteaftrek en EWF naar hoogste inkomen voor maximaal fiscaal voordeel
       // Hoogste inkomen zit in hogere belastingschijf → meer aftrek waard
