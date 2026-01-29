@@ -519,11 +519,13 @@ const ewf = berekenEigenwoningforfait(
 };
     
     // Bereken Box 3 fictief rendement (2026)
-    const berekenBox3FictiefRendement = (vermogen, heeftPartner) => {
-      // Splits vermogen in categorieën
-      const banktegoeden = vermogen.cash || 0;
-      const beleggingen = (vermogen.stocks || 0) + (vermogen.crypto || 0) + (vermogen.other || 0);
-      const schulden = vermogen.liabilities || 0;
+   const berekenBox3FictiefRendement = (vermogen, heeftPartner) => {
+  if (!vermogen) return 0;
+  
+  // Splits vermogen in categorieën
+  const banktegoeden = vermogen.cash || 0;
+  const beleggingen = (vermogen.stocks || 0) + (vermogen.crypto || 0) + (vermogen.other || 0);
+  const schulden = vermogen.liabilities || 0;
       
       const totaalBezit = banktegoeden + beleggingen;
       
