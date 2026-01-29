@@ -2599,6 +2599,22 @@ const toetsInkomen = totalBox1;
                       </div>
                       <p className="text-xs text-gray-500 mt-1">Voor eigenwoningforfait berekening</p>
                     </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">WOZ inflatie (% p.j.)</label>
+                      <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+                        <input
+                          type="number"
+                          value={assumptions.wozInflationRate || 3.0}
+                          onChange={(e) => setAssumptions({...assumptions, wozInflationRate: parseFloat(e.target.value) || 0})}
+                          className="flex-1 px-2 py-1.5 text-sm border-0 focus:ring-1 focus:ring-primary"
+                          step="0.1"
+                          min="0"
+                          max="10"
+                        />
+                        <span className="px-2 py-1.5 text-sm text-gray-500 bg-gray-100 border-l">%</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">Gemiddelde huizenprijsstijging (vaak 2-4%)</p>
+                    </div>
                   </div>
                 </div>
               </div>
