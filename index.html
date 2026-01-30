@@ -1133,7 +1133,7 @@ if (income.category === 'child-benefit' && income.metadata?.kinderenLeeftijden) 
       
       if (item.category === 'child-budget' && item.metadata?.aantalKinderen) {
         return berekenKindgebondenBudget(
-          verzamelinkomen,
+          toetsinkomen,
           item.metadata.aantalKinderen,
           item.metadata.fiscaalPartner || false
         );
