@@ -2485,9 +2485,7 @@ if (income.category === 'child-benefit' && income.metadata?.kinderenLeeftijden) 
       };
       
       const deleteAsset = (id) => {
-        if (confirm('Weet je zeker dat je dit bezit wilt verwijderen?')) {
           setAssets(assets.filter(a => a.id !== id));
-        }
       };
       
       // Liability handlers
@@ -2520,9 +2518,7 @@ if (income.category === 'child-benefit' && income.metadata?.kinderenLeeftijden) 
       };
       
       const deleteLiability = (id) => {
-        if (confirm('Weet je zeker dat je deze schuld wilt verwijderen?')) {
           setLiabilities(liabilities.filter(l => l.id !== id));
-        }
       };
       
       return (
