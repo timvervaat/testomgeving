@@ -874,10 +874,16 @@ const vermogen = {
 };
 
 // Aggregeer vermogen per box3Type uit assets
+// BELANGRIJK: Eigen woning NIET meetellen - die valt onder EWF (al in box 1)
 assets.forEach(asset => {
   if (year >= asset.startYear) {
     const yearsActive = year - asset.startYear;
     const currentValue = grow(asset.value, asset.growthRate || 0, yearsActive);
+    
+    // Skip eigen woning (type 'property') - die valt onder EWF
+    if (asset.type === 'property') {
+      return; // Eigen woning wordt al via EWF belast
+    }
     
     // Map box3Type naar vermogen categorieën
     if (asset.box3Type === 'bank') {
