@@ -2739,7 +2739,7 @@ if (income.category === 'child-benefit' && income.metadata?.kinderenLeeftijden) 
                   <KPICard 
                     icon="🎯"
                     label="Jaar tot vermogensdoel"
-                    value={projections?.yearsToFire ? `${projections.yearsToFire} jaar` : 'Berekenen...'}
+                    value={projections?.yearsToFire ? `${projections.yearsToFire} jaar` : '-'}
                     color="primary"
                   />
                   <KPICard 
@@ -2758,7 +2758,7 @@ if (income.category === 'child-benefit' && income.metadata?.kinderenLeeftijden) 
                     <KPICard 
                       icon="↕️"
                       label="Maandelijks saldo"
-                      value={projections?.monthlySavings ? formatCurrency(projections.monthlySavings) : 'Berekenen...'}
+                      value={projections?.monthlySavings ? formatCurrency(projections.monthlySavings) : '-'}
                       color="primary"
                     />
                     {projections?.timeline[0]?.cashflow && (
