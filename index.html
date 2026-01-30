@@ -2166,10 +2166,11 @@ const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde) => {
       ]);
       
       const [assumptions, setAssumptions] = useState({
-        inflationRate: 2.0,
-        investmentReturn: 7.0,
-        safeWithdrawalRate: 4.0,
-      });
+  inflationRate: 2.0,
+  investmentReturn: 7.0,
+  safeWithdrawalRate: 4.0,
+  wozInflationRate: 3.0,
+});
       
       const [editDialog, setEditDialog] = useState({ isOpen: false, type: null, item: null });
       const [showCategoryDialog, setShowCategoryDialog] = useState(false);
