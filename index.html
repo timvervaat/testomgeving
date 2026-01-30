@@ -1193,13 +1193,13 @@ if (income.category === 'child-benefit' && income.metadata?.kinderenLeeftijden) 
                   )}
                 </div>
                <div className="text-xs text-gray-600">
-                  {['childcare', 'child-benefit', 'child-budget'].includes(item.category) ? (
-                    <>
-                      <span className="font-semibold text-primary">
-                        {formatCurrency(calculateToeslagAmount(item, incomes || [], expenses || [], new Date().getFullYear(), wozWaarde || 0, assets, liabilities))} / jaar
-                      </span>
-                    </>
-                  ) : (
+                      {['childcare', 'child-benefit', 'child-budget'].includes(item.category) ? (
+                        <>
+                          <span className="font-semibold text-primary">
+                            {formatCurrency(calculateToeslagAmount(item, incomes || [], expenses || [], new Date().getFullYear(), wozWaarde || 0))} / jaar
+                          </span>
+                        </>
+                      ) : (
                     <>
                       {formatCurrency(item.amount)} / {item.frequency === 'monthly' ? 'maand' : 'jaar'}
                       {type === 'income' && item.growthRate > 0 && ` • ${item.growthRate}% groei`}
