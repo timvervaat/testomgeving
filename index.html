@@ -417,56 +417,62 @@ const BOX3_2026 = {
   return 4725 + (woz - 1350000) * 0.0235;
 };
     
-   // Centrale functie voor toetsinkomen berekening (voor toeslagen)
-    const berekenToetsinkomen = (incomes, expenses, year, wozWaarde, assumptions = {}, vermogen = null, heeftPartner = false) => {
-      // Toetsinkomen = verzamelinkomen = box 1 inkomen (na belasting en aftrek)
-      // Dit is het inkomen dat de overheid gebruikt voor toeslagenberekening
-      
-      let partner1GrossIncome = 0;
-      let partner2GrossIncome = 0;
-      
-      for (const income of incomes) {
-        if (!isActiveInYear(income, year)) continue;
-        if (['childcare', 'child-benefit', 'child-budget'].includes(income.category)) continue;
-        
-        const baseYearly = yearlyAmount(income.amount, income.frequency);
-        const yearsActive = Math.max(0, year - income.startYear);
-        const grown = grow(baseYearly, income.growthRate ?? 0, yearsActive);
-        
-        if (income.partner === 'partner2') {
-          partner2GrossIncome += grown;
-        } else {
-          partner1GrossIncome += grown;
-        }
-      }
-      
-      const totalGrossIncome = partner1GrossIncome + partner2GrossIncome;
-      const heeftPartner2 = partner2GrossIncome > 0;
-      
-      // Bereken hypotheekrente
-      let hypotheekrenteAftrek = 0;
-      for (const expense of expenses) {
-        if (!isActiveInYear(expense, year)) continue;
-        if (expense.category === 'housing' && expense.mortgageType) {
-          const yearsActive = Math.max(0, year - expense.startYear);
-          const mortgageData = calculateMortgageYear({
-            outstandingAmount: expense.outstandingAmount,
-            interestRate: expense.interestRate,
-            remainingMonths: expense.remainingMonths,
-            mortgageType: expense.mortgageType
-          }, yearsActive);
-          hypotheekrenteAftrek += mortgageData.interest;
-        }
-      }
-      
-      // EWF
-      const startYear = new Date().getFullYear();
-      const ewf = berekenEigenwoningforfait(
-        wozWaarde || 0, 
-        year, 
-        startYear, 
-        assumptions?.wozInflationRate || 0
-      );
+  // Centrale functie voor toetsinkomen berekening (voor toeslagen)
+const berekenToetsinkomen = (incomes, expenses, year, wozWaarde, assumptions = {}, vermogen = null, heeftPartner = false) => {
+  // Toetsinkomen = verzamelinkomen = box 1 inkomen (na belasting en aftrek)
+  // Dit is het inkomen dat de overheid gebruikt voor toeslagenberekening
+  
+  let partner1GrossIncome = 0;
+  let partner2GrossIncome = 0;
+  
+  for (const income of incomes) {
+    if (!isActiveInYear(income, year)) continue;
+    if (['childcare', 'child-benefit', 'child-budget'].includes(income.category)) continue;
+    
+    const baseYearly = yearlyAmount(income.amount, income.frequency);
+    const yearsActive = Math.max(0, year - income.startYear);
+    const grown = grow(baseYearly, income.growthRate ?? 0, yearsActive);
+    
+    if (income.partner === 'partner2') {
+      partner2GrossIncome += grown;
+    } else {
+      partner1GrossIncome += grown;
+    }
+  }
+  
+  const totalGrossIncome = partner1GrossIncome + partner2GrossIncome;
+  const heeftPartner2 = partner2GrossIncome > 0;
+  
+  // Bereken hypotheekrente
+  let hypotheekrenteAftrek = 0;
+  for (const expense of expenses) {
+    if (!isActiveInYear(expense, year)) continue;
+    if (expense.category === 'housing' && expense.mortgageType) {
+      const yearsActive = Math.max(0, year - expense.startYear);
+      const mortgageData = calculateMortgageYear({
+        outstandingAmount: expense.outstandingAmount,
+        interestRate: expense.interestRate,
+        remainingMonths: expense.remainingMonths,
+        mortgageType: expense.mortgageType
+      }, yearsActive);
+      hypotheekrenteAftrek += mortgageData.interest;
+    }
+  }
+  
+  // EWF
+  const startYear = new Date().getFullYear();
+  const ewf = berekenEigenwoningforfait(
+    wozWaarde || 0, 
+    year, 
+    startYear, 
+    assumptions?.wozInflationRate || 0
+  );
+  
+  // Toetsinkomen = box 1 (bruto - hypotheekrente + EWF)
+  const box1Income = totalGrossIncome - hypotheekrenteAftrek + ewf;
+  
+  return box1Income;
+};
     
     // Bereken Box 3 fictief rendement (2026)
    const berekenBox3FictiefRendement = (vermogen, heeftPartner) => {
