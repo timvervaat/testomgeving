@@ -1113,31 +1113,29 @@ if (income.category === 'child-benefit' && income.metadata?.kinderenLeeftijden) 
     return berekenKinderopvangtoeslag(toetsinkomen, item.metadata.kinderen);
   }
       
-      if (item.category === 'child-benefit' && item.metadata?.kinderenLeeftijden) {
-        return berekenKinderbijslag(item.metadata.kinderenLeeftijden);
-      }
-      
-      if (item.category === 'child-budget' && item.metadata?.aantalKinderen) {
-        // Check of er partner 2 is
-        const heeftPartner2 = incomes.some(inc => inc.partner === 'partner2');
-        return berekenKindgebondenBudget(
-          toetsinkomen,
-          item.metadata.aantalKinderen,
-          heeftPartner2
-        );
-      }
-      
-      if (item.category === 'child-benefit' && item.metadata?.kinderenLeeftijden) {
-        return berekenKinderbijslag(item.metadata.kinderenLeeftijden);
-      }
-      
-      if (item.category === 'child-budget' && item.metadata?.aantalKinderen) {
-        return berekenKindgebondenBudget(
-          toetsinkomen,
-          item.metadata.aantalKinderen,
-          item.metadata.fiscaalPartner || false
-        );
-      }
+      const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde) => {
+  // GEEN vermogen berekening nodig - Box 3 telt niet mee voor toeslagen!
+  const toetsinkomen = berekenToetsinkomen(incomes, expenses, year, wozWaarde);
+  
+  if (item.category === 'childcare' && item.metadata?.kinderen) {
+    return berekenKinderopvangtoeslag(toetsinkomen, item.metadata.kinderen);
+  }
+  
+  if (item.category === 'child-benefit' && item.metadata?.kinderenLeeftijden) {
+    return berekenKinderbijslag(item.metadata.kinderenLeeftijden);
+  }
+  
+  if (item.category === 'child-budget' && item.metadata?.aantalKinderen) {
+    const heeftPartner2 = incomes.some(inc => inc.partner === 'partner2');
+    return berekenKindgebondenBudget(
+      toetsinkomen,
+      item.metadata.aantalKinderen,
+      heeftPartner2
+    );
+  }
+  
+  return 0;
+};
       
       return 0;
     };
