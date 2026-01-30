@@ -907,12 +907,13 @@ const heeftKindOnder12 = incomes.some(inc => {
 // Bereken toetsinkomen voor toeslagen (ALLEEN box 1)
       // Box 3 fictief rendement telt NIET mee voor toeslagen!
       // (Bron: Belastingdienst / Rijksoverheid.nl 2026)
-      const toetsInkomen = berekenToetsinkomen(
-        incomes, 
-        expenses, 
-        year, 
-        assumptions.wozWaarde || 0
-      );
+    const toetsInkomen = berekenToetsinkomen(
+  incomes, 
+  expenses, 
+  year, 
+  assumptions.wozWaarde || 0,
+  assumptions
+);
       
       for (const income of incomes) {
         if (!isActiveInYear(income, year)) continue;
