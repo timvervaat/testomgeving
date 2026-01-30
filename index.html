@@ -1104,16 +1104,8 @@ if (income.category === 'child-benefit' && income.metadata?.kinderenLeeftijden) 
       }).format(value);
     };
     
-    // Calculate actual toeslag amount for display based on current data
-   const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde) => {
-  // GEEN vermogen berekening nodig - Box 3 telt niet mee voor toeslagen!
-  const toetsinkomen = berekenToetsinkomen(incomes, expenses, year, wozWaarde);
-  
-  if (item.category === 'childcare' && item.metadata?.kinderen) {
-    return berekenKinderopvangtoeslag(toetsinkomen, item.metadata.kinderen);
-  }
-      
-      const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde) => {
+  // Calculate actual toeslag amount for display based on current data
+const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde) => {
   // GEEN vermogen berekening nodig - Box 3 telt niet mee voor toeslagen!
   const toetsinkomen = berekenToetsinkomen(incomes, expenses, year, wozWaarde);
   
@@ -1136,9 +1128,6 @@ if (income.category === 'child-benefit' && income.metadata?.kinderenLeeftijden) 
   
   return 0;
 };
-      
-      return 0;
-    };
 
     function ItemList({ items, type, onEdit, onDelete, incomes, expenses, wozWaarde }) {
   if (items.length === 0) {
