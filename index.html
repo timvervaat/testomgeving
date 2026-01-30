@@ -501,14 +501,8 @@ const ewf = berekenEigenwoningforfait(
 
       const totalBox1 = box1Income1 + box1Income2;
 
-      // Box 3 fictief rendement (als vermogen beschikbaar)
-      let box3Rendement = 0;
-      if (vermogen) {
-        box3Rendement = berekenBox3FictiefRendement(vermogen, heeftPartner);
-      }
-
-      // Verzamelinkomen = box 1 + box 3 fictief rendement
-      return totalBox1 + box3Rendement;
+      // Toetsinkomen voor toeslagen = ALLEEN box 1 inkomen
+return totalBox1;
     };
     
    // Eigenwoningforfait berekening (2026)
