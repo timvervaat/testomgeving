@@ -2187,16 +2187,16 @@ const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde) => {
           const liabilitiesData = calculateLiabilitiesValue(liabilities, expenseItems, currentYear);
           const currentNetWorth = (totalAssets - propertyValue) - (liabilitiesData.totalLiabilities - liabilitiesData.mortgageLiability);
           
-          const timeline = projectNetWorth({
-            startYear: currentYear,
-            endYear: endYear,
-            startNetWorth: currentNetWorth,
-            incomes: incomeItems,
-            expenses: expenseItems,
-            assumptions: assumptions,
-            assets: assets,
-            liabilities: liabilities
-          });
+   const timeline = projectNetWorth({
+  startYear: currentYear,
+  endYear: endYear,
+  startNetWorth: currentNetWorth,
+  incomes: incomeItems,
+  expenses: expenseItems,
+  assumptions: { ...assumptions, wozWaarde: wozWaarde },  // ✅ wozWaarde toevoegen!
+  assets: assets,
+  liabilities: liabilities
+});
           
           const fireYear = findFireYear(timeline, targetNetWorth);
           
