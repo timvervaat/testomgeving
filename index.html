@@ -489,8 +489,9 @@ const ewf = berekenEigenwoningforfait(
         netIncome2 = partner2GrossIncome - taxResult2.netTax;
       }
       
-      // Toetsinkomen = verzamelinkomen = box 1 (bruto - aftrek + EWF) + box 3 fictief rendement
-      // Box 1: bruto - hypotheekrente + EWF (NIET na belasting!)
+      // Toetsinkomen voor toeslagen = box 1 (bruto - hypotheekrente + EWF)
+      // BELANGRIJK: Box 3 fictief rendement telt NIET mee voor toeslagen!
+      // (Bron: Belastingdienst / Rijksoverheid.nl 2026)
       const box1Income1 = partner1GrossIncome > 0 
         ? partner1GrossIncome - hypotheekrenteAftrekPartner1 + ewfPartner1 
         : 0;
@@ -501,8 +502,8 @@ const ewf = berekenEigenwoningforfait(
 
       const totalBox1 = box1Income1 + box1Income2;
 
-      // Toetsinkomen voor toeslagen = ALLEEN box 1 inkomen
-return totalBox1;
+      // Toetsinkomen = ALLEEN box 1 inkomen (GEEN Box 3!)
+      return totalBox1;
     };
     
    // Eigenwoningforfait berekening (2026)
