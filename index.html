@@ -405,7 +405,7 @@ const BOX3_2026 = {
     };
     
     // Centrale functie voor toetsinkomen berekening (voor toeslagen)
-    const berekenToetsinkomen = (incomes, expenses, year, wozWaarde, vermogen = null, heeftPartner = false) => {
+    const berekenToetsinkomen = (incomes, expenses, year, wozWaarde, assumptions = {}, vermogen = null, heeftPartner = false) => {
       // Toetsinkomen = verzamelinkomen = box 1 inkomen (na belasting en aftrek)
       // Dit is het inkomen dat de overheid gebruikt voor toeslagenberekening
       
