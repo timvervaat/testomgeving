@@ -1142,14 +1142,14 @@ if (income.category === 'child-benefit' && income.metadata?.kinderenLeeftijden) 
       return 0;
     };
 
-    function ItemList({ items, type, onEdit, onDelete, incomes, expenses, wozWaarde, assets = [], liabilities = [] }) {
-      if (items.length === 0) {
-        return (
-          <div className="text-sm text-gray-400 italic py-2">
-            Nog geen items toegevoegd
-          </div>
-        );
-      }
+    function ItemList({ items, type, onEdit, onDelete, incomes, expenses, wozWaarde }) {
+  if (items.length === 0) {
+    return (
+      <div className="text-sm text-gray-400 italic py-2">
+        Nog geen items toegevoegd
+      </div>
+    );
+  }
       
       const categoryEmoji = {
         // Expense categories
