@@ -1171,9 +1171,14 @@ if (income.category === 'child-benefit' && income.metadata?.kinderenLeeftijden) 
   };
   
   assets.forEach(asset => {
-    if (year >= asset.startYear) {
-      const yearsActive = year - asset.startYear;
-      const currentValue = grow(asset.value, asset.growthRate || 0, yearsActive);
+  if (year >= asset.startYear) {
+    const yearsActive = year - asset.startYear;
+    const currentValue = grow(asset.value, asset.growthRate || 0, yearsActive);
+    
+    // Skip eigen woning (type 'property') - die valt onder EWF
+    if (asset.type === 'property') {
+      return;
+    }
       
       if (asset.box3Type === 'bank') {
         vermogen.cash += currentValue;
