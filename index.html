@@ -2165,12 +2165,7 @@ const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde) => {
         // Example: { id: 1, name: 'Studieschuld', amount: 20000, interestRate: 0, type: 'student-loan', startYear: 2018 }
       ]);
       
-      const [assumptions, setAssumptions] = useState({
-  inflationRate: 2.0,
-  investmentReturn: 7.0,
-  safeWithdrawalRate: 4.0,
-  wozInflationRate: 3.0,
-});
+ const [assumptions, setAssumptions] = useState(defaultAssumptions);
       
       const [editDialog, setEditDialog] = useState({ isOpen: false, type: null, item: null });
       const [showCategoryDialog, setShowCategoryDialog] = useState(false);
