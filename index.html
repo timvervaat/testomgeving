@@ -403,6 +403,19 @@ const BOX3_2026 = {
       }
       return IACK.MAX; // €3.032
     };
+
+ // Eigenwoningforfait berekening (2026)
+   const berekenEigenwoningforfait = (wozWaarde, year, startYear, wozInflationRate = 0) => {
+  // Pas WOZ aan voor huizenprijsinflatie
+  const yearsElapsed = year - startYear;
+  const inflatedWoz = wozWaarde * Math.pow(1 + wozInflationRate / 100, yearsElapsed);
+  const woz = parseFloat(inflatedWoz) || 0;
+  
+  if (woz <= 75000) return 0;
+  if (woz <= 1350000) return woz * 0.0035;
+  
+  return 4725 + (woz - 1350000) * 0.0235;
+};
     
    // Centrale functie voor toetsinkomen berekening (voor toeslagen)
     const berekenToetsinkomen = (incomes, expenses, year, wozWaarde, assumptions = {}, vermogen = null, heeftPartner = false) => {
@@ -454,19 +467,6 @@ const BOX3_2026 = {
         startYear, 
         assumptions?.wozInflationRate || 0
       );
-    
-   // Eigenwoningforfait berekening (2026)
-   const berekenEigenwoningforfait = (wozWaarde, year, startYear, wozInflationRate = 0) => {
-  // Pas WOZ aan voor huizenprijsinflatie
-  const yearsElapsed = year - startYear;
-  const inflatedWoz = wozWaarde * Math.pow(1 + wozInflationRate / 100, yearsElapsed);
-  const woz = parseFloat(inflatedWoz) || 0;
-  
-  if (woz <= 75000) return 0;
-  if (woz <= 1350000) return woz * 0.0035;
-  
-  return 4725 + (woz - 1350000) * 0.0235;
-};
     
     // Bereken Box 3 fictief rendement (2026)
    const berekenBox3FictiefRendement = (vermogen, heeftPartner) => {
