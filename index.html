@@ -2643,7 +2643,7 @@ if (income.category === 'child-benefit' && income.metadata?.kinderenLeeftijden) 
                     <KPICard 
                       icon="↕️"
                       label="Maandelijks saldo"
-                      value={projections?.monthlySavings !== undefined ? formatCurrency(projections.monthlySavings) : '-'}
+                      value={projections?.timeline?.[0]?.cashflow ? formatCurrency(monthlySavingsFromCashflow(projections.timeline[0].cashflow)) : '-'}
                       color="primary"
                     />
                     {projections?.timeline[0]?.cashflow && (
