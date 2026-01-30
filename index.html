@@ -1234,7 +1234,7 @@ const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde, assump
                       {['childcare', 'child-benefit', 'child-budget'].includes(item.category) ? (
                         <>
                           <span className="font-semibold text-primary">
-                            {formatCurrency(calculateToeslagAmount(item, incomes || [], expenses || [], new Date().getFullYear(), wozWaarde || 0))} / jaar
+                           {formatCurrency(calculateToeslagAmount(item, incomes || [], expenses || [], new Date().getFullYear(), wozWaarde || 0, {wozInflationRate: 3}))} / jaar
                           </span>
                         </>
                       ) : (
