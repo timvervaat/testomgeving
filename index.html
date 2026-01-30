@@ -404,7 +404,7 @@ const BOX3_2026 = {
       return IACK.MAX; // €3.032
     };
     
-    // Centrale functie voor toetsinkomen berekening (voor toeslagen)
+   // Centrale functie voor toetsinkomen berekening (voor toeslagen)
     const berekenToetsinkomen = (incomes, expenses, year, wozWaarde, assumptions = {}, vermogen = null, heeftPartner = false) => {
       // Toetsinkomen = verzamelinkomen = box 1 inkomen (na belasting en aftrek)
       // Dit is het inkomen dat de overheid gebruikt voor toeslagenberekening
@@ -448,12 +448,63 @@ const BOX3_2026 = {
       
       // EWF
       const startYear = new Date().getFullYear();
-const ewf = berekenEigenwoningforfait(
-  wozWaarde || 0, 
-  year, 
-  startYear, 
-  assumptions?.wozInflationRate || 0
-);
+      const ewf = berekenEigenwoningforfait(
+        wozWaarde || 0, 
+        year, 
+        startYear, 
+        assumptions?.wozInflationRate || 0
+      );
+      
+      // Optimale verdeling
+      let hypotheekrenteAftrekPartner1 = 0;
+      let hypotheekrenteAftrekPartner2 = 0;
+      let ewfPartner1 = 0;
+      let ewfPartner2 = 0;
+      
+      if (heeftPartner2) {
+        if (partner1GrossIncome >= partner2GrossIncome) {
+          hypotheekrenteAftrekPartner1 = hypotheekrenteAftrek;
+          ewfPartner1 = ewf;
+        } else {
+          hypotheekrenteAftrekPartner2 = hypotheekrenteAftrek;
+          ewfPartner2 = ewf;
+        }
+      } else {
+        hypotheekrenteAftrekPartner1 = hypotheekrenteAftrek;
+        ewfPartner1 = ewf;
+      }
+      
+      // Bereken belasting per partner (simpel, zonder IACK want die komt later)
+      let netIncome1 = 0;
+      if (partner1GrossIncome > 0) {
+        const taxableIncome1 = Math.max(0, partner1GrossIncome - hypotheekrenteAftrekPartner1 + ewfPartner1);
+        const taxResult1 = calculateDutchTax2026(taxableIncome1, 0);
+        netIncome1 = partner1GrossIncome - taxResult1.netTax;
+      }
+      
+      let netIncome2 = 0;
+      if (partner2GrossIncome > 0) {
+        const taxableIncome2 = Math.max(0, partner2GrossIncome - hypotheekrenteAftrekPartner2 + ewfPartner2);
+        const taxResult2 = calculateDutchTax2026(taxableIncome2, 0);
+        netIncome2 = partner2GrossIncome - taxResult2.netTax;
+      }
+      
+      // Toetsinkomen voor toeslagen = box 1 (bruto - hypotheekrente + EWF)
+      // BELANGRIJK: Box 3 fictief rendement telt NIET mee voor toeslagen!
+      // (Bron: Belastingdienst / Rijksoverheid.nl 2026)
+      const box1Income1 = partner1GrossIncome > 0 
+        ? partner1GrossIncome - hypotheekrenteAftrekPartner1 + ewfPartner1 
+        : 0;
+        
+      const box1Income2 = partner2GrossIncome > 0 
+        ? partner2GrossIncome - hypotheekrenteAftrekPartner2 + ewfPartner2 
+        : 0;
+
+      const totalBox1 = box1Income1 + box1Income2;
+
+      // Toetsinkomen = ALLEEN box 1 inkomen (GEEN Box 3!)
+      return totalBox1;
+    };
       
       // Optimale verdeling
       let hypotheekrenteAftrekPartner1 = 0;
