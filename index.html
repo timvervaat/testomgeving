@@ -743,9 +743,8 @@ const box1Income2 = partner2GrossIncome > 0
   : 0;
 
 const toetsInkomen = box1Income1 + box1Income2;
-    };
-      
-      // Calculate IACK (gaat naar laagste inkomen)
+
+// Calculate IACK (gaat naar laagste inkomen)
 let iack = 0;
 const heeftKindOnder12 = incomes.some(inc => {
   if (inc.category !== 'child-benefit') return false;
@@ -760,137 +759,126 @@ const heeftKindOnder12 = incomes.some(inc => {
     return huidigeLeeftijd < 12;
   });
 });
-      
-      if (heeftKindOnder12 && totalGrossIncome > 0) {
-        // IACK berekenen voor laagste inkomen
-        let laagsteInkomen = partner1GrossIncome;
-        let laagsteInkomenEWF = ewfPartner1;
-        let laagsteInkomenHypotheekAftrek = hypotheekrenteAftrekPartner1;
-        
-        if (heeftPartner2 && partner2GrossIncome < partner1GrossIncome) {
-          laagsteInkomen = partner2GrossIncome;
-          laagsteInkomenEWF = ewfPartner2;
-          laagsteInkomenHypotheekAftrek = hypotheekrenteAftrekPartner2;
-        }
-        
-        // IACK = inkomsten werk en woning van laagste inkomen
-        const inkomstenWerkWoning = laagsteInkomen + laagsteInkomenEWF - laagsteInkomenHypotheekAftrek;
-        iack = berekenIACK(inkomstenWerkWoning);
-      }
-      
-      // Bereken belasting per partner
-      let loonheffing1 = 0;
-      let werkelijkeBelasting1 = 0;
-      let teruggaafIB1 = 0;
-      
-      if (partner1GrossIncome > 0) {
-        loonheffing1 = calculateLoonheffing(partner1GrossIncome);
-        const taxableIncome1 = Math.max(0, partner1GrossIncome - hypotheekrenteAftrekPartner1);
-        
-        // IACK gaat naar laagste inkomen
-        const iackPartner1 = (!heeftPartner2 || partner1GrossIncome <= partner2GrossIncome) ? iack : 0;
-        const taxResult1 = calculateDutchTax2026(taxableIncome1, iackPartner1);
-        
-        werkelijkeBelasting1 = taxResult1.netTax;
-        teruggaafIB1 = loonheffing1 - werkelijkeBelasting1;
-      }
-      
-      let loonheffing2 = 0;
-      let werkelijkeBelasting2 = 0;
-      let teruggaafIB2 = 0;
-      
-      if (partner2GrossIncome > 0) {
-        loonheffing2 = calculateLoonheffing(partner2GrossIncome);
-        const taxableIncome2 = Math.max(0, partner2GrossIncome - hypotheekrenteAftrekPartner2);
-        
-        // IACK gaat naar laagste inkomen
-        const iackPartner2 = (partner2GrossIncome < partner1GrossIncome) ? iack : 0;
-        const taxResult2 = calculateDutchTax2026(taxableIncome2, iackPartner2);
-        
-        werkelijkeBelasting2 = taxResult2.netTax;
-        teruggaafIB2 = loonheffing2 - werkelijkeBelasting2;
-      }
-      
-      // Totalen
-      const totalLoonheffing = loonheffing1 + loonheffing2;
-      const totalWerkelijkeBelasting = werkelijkeBelasting1 + werkelijkeBelasting2;
-      const totalTeruggaafIB = teruggaafIB1 + teruggaafIB2;
-      const netIncome = totalGrossIncome - totalWerkelijkeBelasting;
-      
-      // Bereken toeslagen (netto, niet belastbaar)
-      let toeslagenTotaal = 0;
-      
-// Bereken toetsinkomen voor toeslagen (ALLEEN box 1)
-      // Box 3 fictief rendement telt NIET mee voor toeslagen!
-      // (Bron: Belastingdienst / Rijksoverheid.nl 2026)
-    const toetsInkomen = berekenToetsinkomen(
-  incomes, 
-  expenses, 
-  year, 
-  assumptions.wozWaarde || 0,
-  assumptions
-);
-      
-      for (const income of incomes) {
-        if (!isActiveInYear(income, year)) continue;
-        
-        // Calculate inflation factor for toeslagen (delayed by 1 year)
-        const yearsActive = Math.max(0, year - income.startYear);
-        const inflationYears = Math.max(0, yearsActive - 1);
-        const inflationFactor = Math.pow(1 + inflationRate / 100, inflationYears);
-        
-        // Kinderopvangtoeslag
-        if (income.category === 'childcare' && income.metadata?.kinderen) {
-          toeslagenTotaal += berekenKinderopvangtoeslag(toetsInkomen, income.metadata.kinderen, inflationFactor);
-        }
-        
-    // Kinderbijslag
-if (income.category === 'child-benefit' && income.metadata?.kinderenLeeftijden) {
-  const yearsElapsed = Math.max(0, year - income.startYear);
-  toeslagenTotaal += berekenKinderbijslag(
-    income.metadata.kinderenLeeftijden, 
-    inflationFactor,
-    yearsElapsed
-  );
+
+if (heeftKindOnder12 && totalGrossIncome > 0) {
+  // IACK berekenen voor laagste inkomen
+  let laagsteInkomen = partner1GrossIncome;
+  let laagsteInkomenEWF = ewfPartner1;
+  let laagsteInkomenHypotheekAftrek = hypotheekrenteAftrekPartner1;
+  
+  if (heeftPartner2 && partner2GrossIncome < partner1GrossIncome) {
+    laagsteInkomen = partner2GrossIncome;
+    laagsteInkomenEWF = ewfPartner2;
+    laagsteInkomenHypotheekAftrek = hypotheekrenteAftrekPartner2;
+  }
+  
+  // IACK = inkomsten werk en woning van laagste inkomen
+  const inkomstenWerkWoning = laagsteInkomen + laagsteInkomenEWF - laagsteInkomenHypotheekAftrek;
+  iack = berekenIACK(inkomstenWerkWoning);
 }
-        
-        // Kindgebonden budget
-        if (income.category === 'child-budget' && income.metadata?.aantalKinderen) {
-          toeslagenTotaal += berekenKindgebondenBudget(
-            toetsInkomen, 
-            income.metadata.aantalKinderen, 
-            heeftPartner2, // fiscaalPartner = heeft partner 2
-            inflationFactor
-          );
-        }
-      }
-      
-      // Correct savings calculation: add toeslagen to available income
-      const totalAvailable = netIncome + toeslagenTotaal;
-      const netSavings = totalAvailable - totalExpenses;
-      
-      // Bereken effectief belastingtarief
-      const effectiveTaxRate = totalGrossIncome > 0 
-        ? Number((totalWerkelijkeBelasting / totalGrossIncome * 100).toFixed(2)) 
-        : 0;
-      
-      return {
-        year: Number(year),
-        grossIncome: Number(totalGrossIncome.toFixed(2)),
-        partner1GrossIncome: Number(partner1GrossIncome.toFixed(2)),
-        partner2GrossIncome: Number(partner2GrossIncome.toFixed(2)),
-        taxableIncome: Number((totalGrossIncome - hypotheekrenteAftrek).toFixed(2)),
-        loonheffing: Number(totalLoonheffing.toFixed(2)),
-        werkelijkeBelasting: Number(totalWerkelijkeBelasting.toFixed(2)),
-        teruggaafIB: Number(totalTeruggaafIB.toFixed(2)),
-        iack: Number(iack.toFixed(2)),
-        netIncome: Number(netIncome.toFixed(2)),
-        expenses: Number(totalExpenses.toFixed(2)),
-        savings: Number(netSavings.toFixed(2)),
-        toeslagen: Number(toeslagenTotaal.toFixed(2)),
-        hypotheekrenteAftrek: Number(hypotheekrenteAftrek.toFixed(2)),
-        effectiveTaxRate: effectiveTaxRate
-      };
+
+// Bereken belasting per partner
+let loonheffing1 = 0;
+let werkelijkeBelasting1 = 0;
+let teruggaafIB1 = 0;
+
+if (partner1GrossIncome > 0) {
+  loonheffing1 = calculateLoonheffing(partner1GrossIncome);
+  const taxableIncome1 = Math.max(0, partner1GrossIncome - hypotheekrenteAftrekPartner1);
+  
+  // IACK gaat naar laagste inkomen
+  const iackPartner1 = (!heeftPartner2 || partner1GrossIncome <= partner2GrossIncome) ? iack : 0;
+  const taxResult1 = calculateDutchTax2026(taxableIncome1, iackPartner1);
+  
+  werkelijkeBelasting1 = taxResult1.netTax;
+  teruggaafIB1 = loonheffing1 - werkelijkeBelasting1;
+}
+
+let loonheffing2 = 0;
+let werkelijkeBelasting2 = 0;
+let teruggaafIB2 = 0;
+
+if (partner2GrossIncome > 0) {
+  loonheffing2 = calculateLoonheffing(partner2GrossIncome);
+  const taxableIncome2 = Math.max(0, partner2GrossIncome - hypotheekrenteAftrekPartner2);
+  
+  // IACK gaat naar laagste inkomen
+  const iackPartner2 = (partner2GrossIncome < partner1GrossIncome) ? iack : 0;
+  const taxResult2 = calculateDutchTax2026(taxableIncome2, iackPartner2);
+  
+  werkelijkeBelasting2 = taxResult2.netTax;
+  teruggaafIB2 = loonheffing2 - werkelijkeBelasting2;
+}
+
+// Totalen
+const totalLoonheffing = loonheffing1 + loonheffing2;
+const totalWerkelijkeBelasting = werkelijkeBelasting1 + werkelijkeBelasting2;
+const totalTeruggaafIB = teruggaafIB1 + teruggaafIB2;
+const netIncome = totalGrossIncome - totalWerkelijkeBelasting;
+
+// Bereken toeslagen (netto, niet belastbaar)
+let toeslagenTotaal = 0;
+
+for (const income of incomes) {
+  if (!isActiveInYear(income, year)) continue;
+  
+  // Calculate inflation factor for toeslagen (delayed by 1 year)
+  const yearsActive = Math.max(0, year - income.startYear);
+  const inflationYears = Math.max(0, yearsActive - 1);
+  const inflationFactor = Math.pow(1 + inflationRate / 100, inflationYears);
+  
+  // Kinderopvangtoeslag
+  if (income.category === 'childcare' && income.metadata?.kinderen) {
+    toeslagenTotaal += berekenKinderopvangtoeslag(toetsInkomen, income.metadata.kinderen, inflationFactor);
+  }
+  
+  // Kinderbijslag
+  if (income.category === 'child-benefit' && income.metadata?.kinderenLeeftijden) {
+    const yearsElapsed = Math.max(0, year - income.startYear);
+    toeslagenTotaal += berekenKinderbijslag(
+      income.metadata.kinderenLeeftijden, 
+      inflationFactor,
+      yearsElapsed
+    );
+  }
+  
+  // Kindgebonden budget
+  if (income.category === 'child-budget' && income.metadata?.aantalKinderen) {
+    toeslagenTotaal += berekenKindgebondenBudget(
+      toetsInkomen, 
+      income.metadata.aantalKinderen, 
+      heeftPartner2, // fiscaalPartner = heeft partner 2
+      inflationFactor
+    );
+  }
+}
+
+// Correct savings calculation: add toeslagen to available income
+const totalAvailable = netIncome + toeslagenTotaal;
+const netSavings = totalAvailable - totalExpenses;
+
+// Bereken effectief belastingtarief
+const effectiveTaxRate = totalGrossIncome > 0 
+  ? Number((totalWerkelijkeBelasting / totalGrossIncome * 100).toFixed(2)) 
+  : 0;
+
+return {
+  year: Number(year),
+  grossIncome: Number(totalGrossIncome.toFixed(2)),
+  partner1GrossIncome: Number(partner1GrossIncome.toFixed(2)),
+  partner2GrossIncome: Number(partner2GrossIncome.toFixed(2)),
+  taxableIncome: Number((totalGrossIncome - hypotheekrenteAftrek).toFixed(2)),
+  loonheffing: Number(totalLoonheffing.toFixed(2)),
+  werkelijkeBelasting: Number(totalWerkelijkeBelasting.toFixed(2)),
+  teruggaafIB: Number(totalTeruggaafIB.toFixed(2)),
+  iack: Number(iack.toFixed(2)),
+  netIncome: Number(netIncome.toFixed(2)),
+  expenses: Number(totalExpenses.toFixed(2)),
+  savings: Number(netSavings.toFixed(2)),
+  toeslagen: Number(toeslagenTotaal.toFixed(2)),
+  hypotheekrenteAftrek: Number(hypotheekrenteAftrek.toFixed(2)),
+  effectiveTaxRate: effectiveTaxRate
+};
     };
     
     // From kpis.js
