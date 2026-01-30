@@ -726,6 +726,20 @@ const ewf = berekenEigenwoningforfait(
         hypotheekrenteAftrekPartner1 = hypotheekrenteAftrek;
         ewfPartner1 = ewf;
       }
+
+// Toetsinkomen voor toeslagen = box 1 (bruto - hypotheekrente + EWF)
+      const box1Income1 = partner1GrossIncome > 0 
+        ? partner1GrossIncome - hypotheekrenteAftrekPartner1 + ewfPartner1 
+        : 0;
+        
+      const box1Income2 = partner2GrossIncome > 0 
+        ? partner2GrossIncome - hypotheekrenteAftrekPartner2 + ewfPartner2 
+        : 0;
+
+      const totalBox1 = box1Income1 + box1Income2;
+
+      return totalBox1;
+    };
       
       // Calculate IACK (gaat naar laagste inkomen)
 let iack = 0;
