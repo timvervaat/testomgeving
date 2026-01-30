@@ -2436,16 +2436,14 @@ if (income.category === 'child-benefit' && income.metadata?.kinderenLeeftijden) 
                     <button onClick={addIncome} className="text-primary hover:text-primary-dark text-xl" title="Voeg inkomen toe">+</button>
                   </div>
                 <ItemList 
-  items={incomeItems} 
-  type="income" 
-  onEdit={editItem} 
-  onDelete={deleteItem}
-  incomes={incomeItems}
-  expenses={expenseItems}
-  wozWaarde={wozWaarde}
-  assets={assets}
-  liabilities={liabilities}
-/>
+                    items={incomeItems} 
+                    type="income" 
+                    onEdit={editItem} 
+                    onDelete={deleteItem}
+                    incomes={incomeItems}
+                    expenses={expenseItems}
+                    wozWaarde={wozWaarde}
+                  />
                 </div>
                 
                 <div className="bg-white rounded-lg shadow p-4">
