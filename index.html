@@ -2621,10 +2621,10 @@ if (income.category === 'child-benefit' && income.metadata?.kinderenLeeftijden) 
               <div className="lg:col-span-3 space-y-6">
                 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <KPICard 
+               <KPICard 
                     icon="🎯"
                     label="Jaar tot vermogensdoel"
-                    value={projections?.yearsToFire ? `${projections.yearsToFire} jaar` : '-'}
+                    value={projections?.fireYear ? `${projections.yearsToFire} jaar` : 'Niet binnen 50 jaar'}
                     color="primary"
                   />
                   <KPICard 
@@ -2639,11 +2639,11 @@ if (income.category === 'child-benefit' && income.metadata?.kinderenLeeftijden) 
                     value={projections?.timeline[0] ? formatCurrency(projections.timeline[0].liquidNetWorth) : formatCurrency(0)}
                     color="accent"
                   />
-                <div className="relative group">
+               <div className="relative group">
                     <KPICard 
                       icon="↕️"
                       label="Maandelijks saldo"
-                      value={projections?.monthlySavings ? formatCurrency(projections.monthlySavings) : '-'}
+                      value={projections?.monthlySavings !== undefined ? formatCurrency(projections.monthlySavings) : '-'}
                       color="primary"
                     />
                     {projections?.timeline[0]?.cashflow && (
