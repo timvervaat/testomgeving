@@ -2565,16 +2565,16 @@ const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde, assump
                     value={projections?.fireYear ? `${projections.yearsToFire} jaar` : 'Niet binnen 50 jaar'}
                     color="primary"
                   />
-                  <KPICard 
+                <KPICard 
                     icon="🪙"
                     label="Vermogensdoel"
                     value={formatCurrency(targetNetWorth)}
                     color="secondary"
                   />
-                 <KPICard 
-                    icon="📊"
-                    label="Huidig liquide vermogen"
-                    value={projections?.timeline[0] ? formatCurrency(projections.timeline[0].liquidNetWorth) : formatCurrency(0)}
+                  <KPICard 
+                    icon="💰"
+                    label="Huidig totaal vermogen"
+                    value={projections?.timeline[0] ? formatCurrency(projections.timeline[0].netWorth) : formatCurrency(0)}
                     color="accent"
                   />
                <div className="relative group">
