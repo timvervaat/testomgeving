@@ -2798,11 +2798,14 @@ const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde, assump
                                 <span className="w-16 text-gray-600">{year.year}</span>
                                 <div className="flex-1 bg-gray-200 rounded-full h-6 relative">
                                   <div 
-                                    className="bg-primary h-6 rounded-full flex items-center justify-end pr-2 text-white text-xs font-medium"
+                                    className="bg-primary h-6 rounded-full"
                                     style={{ width: `${Math.min(100, (year.netWorth / targetNetWorth) * 100)}%` }}
-                                  >
-                                    {year.netWorth >= 10000 && formatCurrency(year.netWorth)}
-                                  </div>
+                                  ></div>
+                                  {(year.netWorth / targetNetWorth) * 100 >= 15 && (
+                                    <div className="absolute inset-0 flex items-center justify-end pr-2">
+                                      <span className="text-white text-xs font-medium">{formatCurrency(year.netWorth)}</span>
+                                    </div>
+                                  )}
                                 </div>
                                 {year.savingsRate !== null && (
                                   <span className="text-xs text-gray-500 w-16 text-right">{year.savingsRate.toFixed(0)}%</span>
