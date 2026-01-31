@@ -678,7 +678,7 @@ const calculateAnnualCashflow = (year, incomes, expenses, assumptions = {}) => {
   for (const expense of expenses) {
     if (!isActiveInYear(expense, year)) continue;
     
-    // Handle mortgage with amortization and interest deduction
+   // Handle mortgage with amortization and interest deduction
     if (expense.category === 'housing' && expense.mortgageType) {
       const yearsActive = Math.max(0, year - expense.startYear);
       const mortgageData = calculateMortgageYear({
@@ -689,7 +689,10 @@ const calculateAnnualCashflow = (year, incomes, expenses, assumptions = {}) => {
       }, yearsActive);
       
       totalExpenses += mortgageData.payment;
-      hypotheekrenteAftrek += mortgageData.interest;
+      // Alleen annuïtaire hypotheek is aftrekbaar, aflossingsvrij is box 3 schuld
+      if (expense.mortgageType === 'annuity') {
+        hypotheekrenteAftrek += mortgageData.interest;
+      }
       continue;
     }
     
