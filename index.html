@@ -2695,16 +2695,16 @@ const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde, assump
                             <span>✓ Arbeidskorting (AK)</span>
                             <span className="font-semibold">Inbegrepen</span>
                           </div>
-                          {projections.timeline[0].cashflow.iack > 0 && (
+                         {projections.timeline[0].cashflow.iack > 0 && (
                             <div className="flex justify-between text-green-600">
                               <span>✓ IACK (combinatiekorting)</span>
-                              <span className="font-semibold">€{projections.timeline[0].cashflow.iack.toFixed(0)}</span>
+                              <span className="font-semibold">{formatCurrency(projections.timeline[0].cashflow.iack)}</span>
                             </div>
                           )}
                          {projections.timeline[0].cashflow.hypotheekrenteAftrek > 0 && (
                             <div className="flex justify-between text-blue-600">
                               <span>✓ Hypotheekrenteaftrek</span>
-                              <span className="font-semibold">€{projections.timeline[0].cashflow.hypotheekrenteAftrek.toFixed(0)}</span>
+                              <span className="font-semibold">{formatCurrency(projections.timeline[0].cashflow.hypotheekrenteAftrek)}</span>
                             </div>
                           )}
                           {projections.timeline[0].cashflow.partner2GrossIncome > 0 && projections.timeline[0].cashflow.hypotheekrenteAftrek > 0 && (
