@@ -2691,21 +2691,6 @@ const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde, assump
                       color="primary"
                     />
                   )}
-                 {projections?.timeline[0]?.cashflow?.iack > 0 && (
-                    <div className="relative group">
-                      <KPICard 
-                        icon="👶"
-                        label="IACK (combinatiekorting)"
-                        value={formatCurrency(projections.timeline[0].cashflow.iack)}
-                        color="accent"
-                      />
-                      <div className="absolute left-0 top-full mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                        <p className="text-xs text-gray-600">
-                          Inkomensafhankelijke combinatiekorting voor werkende ouders met kind onder 12 jaar
-                        </p>
-                      </div>
-                    </div>
-                  )}
                   {projections?.timeline[0]?.cashflow && (
                     <div className="relative group">
                       <KPICard 
