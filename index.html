@@ -896,21 +896,23 @@ const effectiveTaxRate = totalGrossIncome > 0
   : 0;
 
 return {
-  year: Number(year),
-  grossIncome: Number(totalGrossIncome.toFixed(2)),
-  partner1GrossIncome: Number(partner1GrossIncome.toFixed(2)),
-  partner2GrossIncome: Number(partner2GrossIncome.toFixed(2)),
+    year: Number(year),
+    grossIncome: Number(totalGrossIncome.toFixed(2)),
+    partner1GrossIncome: Number(partner1GrossIncome.toFixed(2)),
+    partner2GrossIncome: Number(partner2GrossIncome.toFixed(2)),
     taxableIncome: Number((totalGrossIncome - hypotheekrenteAftrek).toFixed(2)),
     loonheffing: Number(totalLoonheffing.toFixed(2)),
     werkelijkeBelasting: Number(totalWerkelijkeBelasting.toFixed(2)),
     teruggaafIB: Number(totalTeruggaafIB.toFixed(2)),
     iack: Number(iack.toFixed(2)),
-    netIncome: Number(netIncome.toFixed(2)),
+    netIncome: Number(netIncomeAfterBox3.toFixed(2)),
     expenses: Number(totalExpenses.toFixed(2)),
-    savings: Number(netSavings.toFixed(2)),
+    savings: Number((totalAvailable - totalExpenses - box3Belasting).toFixed(2)),
     toeslagen: Number(toeslagenTotaal.toFixed(2)),
     hypotheekrenteAftrek: Number(hypotheekrenteAftrek.toFixed(2)),
-    effectiveTaxRate: effectiveTaxRate
+    effectiveTaxRate: effectiveTaxRate,
+    box3Belasting: Number(box3Belasting.toFixed(2)),
+    aflossingsvrijeSchuld: Number(aflossingsvrijeSchuld.toFixed(2))
   };
 };
     
