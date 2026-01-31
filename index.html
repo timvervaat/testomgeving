@@ -2099,7 +2099,7 @@ const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde, assump
       );
     }
     
-    function KPICard({ icon, label, value, color = 'primary' }) {
+   function KPICard({ icon, label, value, color = 'primary' }) {
       const colorClasses = {
         primary: 'border-primary bg-primary/5',
         secondary: 'border-secondary bg-secondary/5',
@@ -2107,12 +2107,12 @@ const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde, assump
       };
       
       return (
-        <div className={`bg-white rounded-lg shadow p-4 border-l-4 ${colorClasses[color]}`}>
+        <div className={`bg-white rounded-lg shadow p-4 border-l-4 min-h-[120px] flex flex-col ${colorClasses[color]}`}>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-2xl">{icon}</span>
           </div>
           <div className="text-sm text-gray-600 mb-1">{label}</div>
-          <div className="text-xl font-bold text-dark">{value}</div>
+          <div className="text-xl font-bold text-dark mt-auto">{value}</div>
         </div>
       );
     }
