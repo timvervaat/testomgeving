@@ -2809,11 +2809,9 @@ const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde, assump
                                     className="bg-primary h-6 rounded-full"
                                     style={{ width: `${Math.min(100, (year.netWorth / targetNetWorth) * 100)}%` }}
                                   ></div>
-                                  {(year.netWorth / targetNetWorth) * 100 >= 15 && (
-                                    <div className="absolute inset-0 flex items-center justify-end pr-2">
-                                      <span className="text-gray-800 text-xs font-medium">{formatCurrency(year.netWorth)}</span>
-                                    </div>
-                                  )}
+                                  <div className="absolute inset-0 flex items-center justify-end pr-2">
+                                    <span className="text-gray-800 text-xs font-medium">{formatCurrency(year.netWorth)}</span>
+                                  </div>
                                 </div>
                               </div>
                               {/* Hover tooltip with breakdown */}
