@@ -863,16 +863,43 @@ const calculateAnnualCashflow = (year, incomes, expenses, assumptions = {}) => {
   const totalAvailable = netIncome + toeslagenTotaal;
   const netSavings = totalAvailable - totalExpenses;
   
-  // Bereken effectief belastingtarief
-  const effectiveTaxRate = totalGrossIncome > 0 
-    ? Number((totalWerkelijkeBelasting / totalGrossIncome * 100).toFixed(2)) 
-    : 0;
-  
-  return {
-    year: Number(year),
-    grossIncome: Number(totalGrossIncome.toFixed(2)),
-    partner1GrossIncome: Number(partner1GrossIncome.toFixed(2)),
-    partner2GrossIncome: Number(partner2GrossIncome.toFixed(2)),
+// Bereken Box 3 belasting (vermogensrendementsheffing) - ALLEEN voor aflossingsvrije hypotheek
+let box3Belasting = 0;
+let aflossingsvrijeSchuld = 0;
+
+for (const expense of expenses) {
+  if (!isActiveInYear(expense, year)) continue;
+  if (expense.category === 'housing' && expense.mortgageType === 'interest-only') {
+    const yearsActive = Math.max(0, year - expense.startYear);
+    const mortgageData = calculateMortgageYear({
+      outstandingAmount: expense.outstandingAmount,
+      interestRate: expense.interestRate,
+      remainingMonths: expense.remainingMonths,
+      mortgageType: expense.mortgageType
+    }, yearsActive);
+    aflossingsvrijeSchuld += mortgageData.remainingBalance;
+  }
+}
+
+// Bereken Box 3 fictief rendement op schuld (2,70% over aflossingsvrije hypotheek)
+if (aflossingsvrijeSchuld > 0) {
+  const fictiefRendementSchuld = aflossingsvrijeSchuld * BOX3_2026.RENDEMENT.SCHULDEN; // 2,70%
+  box3Belasting = fictiefRendementSchuld * BOX3_2026.BELASTINGTARIEF; // 36% belasting
+}
+
+// Trek Box 3 belasting af van netto inkomen
+const netIncomeAfterBox3 = netIncome - box3Belasting;
+
+// Bereken effectief belastingtarief (inclusief Box 3)
+const effectiveTaxRate = totalGrossIncome > 0 
+  ? Number(((totalWerkelijkeBelasting + box3Belasting) / totalGrossIncome * 100).toFixed(2)) 
+  : 0;
+
+return {
+  year: Number(year),
+  grossIncome: Number(totalGrossIncome.toFixed(2)),
+  partner1GrossIncome: Number(partner1GrossIncome.toFixed(2)),
+  partner2GrossIncome: Number(partner2GrossIncome.toFixed(2)),
     taxableIncome: Number((totalGrossIncome - hypotheekrenteAftrek).toFixed(2)),
     loonheffing: Number(totalLoonheffing.toFixed(2)),
     werkelijkeBelasting: Number(totalWerkelijkeBelasting.toFixed(2)),
