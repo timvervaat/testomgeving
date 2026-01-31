@@ -2802,7 +2802,7 @@ const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde, assump
                         <div className="space-y-1">
                           {projections.timeline.slice(0, 10).map((year, index) => (
                             <div key={index} className="group relative">
-                              <div className="flex items-center gap-2 text-sm">
+                             <div className="flex items-center gap-2 text-sm">
                                 <span className="w-16 text-gray-600">{year.year}</span>
                                 <div className="flex-1 bg-gray-200 rounded-full h-6 relative">
                                   <div 
@@ -2811,18 +2811,10 @@ const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde, assump
                                   ></div>
                                   {(year.netWorth / targetNetWorth) * 100 >= 15 && (
                                     <div className="absolute inset-0 flex items-center justify-end pr-2">
-                                      <span className="text-white text-xs font-medium">{formatCurrency(year.netWorth)}</span>
+                                      <span className="text-gray-800 text-xs font-medium">{formatCurrency(year.netWorth)}</span>
                                     </div>
                                   )}
                                 </div>
-                                {year.savingsRate !== null && (
-                                  <span className="text-xs text-gray-500 w-16 text-right">{year.savingsRate.toFixed(0)}%</span>
-                                )}
-                                {year.cashflow?.toeslagen > 0 && (
-                                  <span className="text-xs text-green-600 w-20 text-right">
-                                    +{formatCurrency(year.cashflow.toeslagen)} toeslagen
-                                  </span>
-                                )}
                               </div>
                               {/* Hover tooltip with breakdown */}
                               <div className="absolute left-20 top-full mt-1 w-80 bg-white border border-gray-300 rounded-lg shadow-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
