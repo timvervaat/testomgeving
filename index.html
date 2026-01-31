@@ -2131,21 +2131,19 @@ const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde, assump
       
       const [projections, setProjections] = useState(null);
       
-     useEffect(() => {
+    useEffect(() => {
         try {
           const currentYear = new Date().getFullYear();
           const endYear = currentYear + 50;
           
-          // Calculate current net worth from assets and liabilities
-          const totalAssets = calculateAssetsValue(assets, currentYear);
-          const propertyValue = calculatePropertyValue(assets, currentYear);
-          const liabilitiesData = calculateLiabilitiesValue(liabilities, expenseItems, currentYear);
-          const currentNetWorth = (totalAssets - propertyValue) - (liabilitiesData.totalLiabilities - liabilitiesData.mortgageLiability);
+          // Start net worth = 0, want assets worden apart bijgehouden
+          // (niet-vastgoed assets zoals aandelen/crypto worden al geteld in calculateAssetsValue)
+          const startNetWorth = 0;
           
           const timeline = projectNetWorth({
             startYear: currentYear,
             endYear: endYear,
-            startNetWorth: currentNetWorth,
+            startNetWorth: startNetWorth,
             incomes: incomeItems,
             expenses: expenseItems,
             assumptions: { ...assumptions, wozWaarde: wozWaarde },
