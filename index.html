@@ -2750,12 +2750,6 @@ const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde, assump
                     </div>
                   )}
                   <KPICard 
-                    icon="💳"
-                    label="Totale schulden"
-                    value={projections?.timeline[0] ? formatCurrency(projections.timeline[0].totalLiabilities) : formatCurrency(0)}
-                    color="secondary"
-                  />
-                  <KPICard 
                     icon="🏆"
                     label="Equity (Woning - Hypotheek)"
                     value={projections?.timeline[0] ? formatCurrency(projections.timeline[0].equity) : formatCurrency(0)}
