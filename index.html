@@ -1115,24 +1115,9 @@ const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde, assump
               className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
             >
               <div className="flex-1 cursor-pointer" onClick={() => onEdit(type, item)}>
-                <div className="font-medium text-sm flex items-center gap-2">
+               <div className="font-medium text-sm flex items-center gap-2">
                   <span className="text-lg w-6 flex-shrink-0">{item.category && categoryEmoji[item.category]}</span>
                   <span className="flex-1">{item.name}</span>
-                  {item.category === 'childcare' && item.metadata?.kinderen?.length > 0 && (
-                    <span className="text-xs text-gray-500">
-                      ({item.metadata.kinderen.length} {item.metadata.kinderen.length === 1 ? 'kind' : 'kinderen'})
-                    </span>
-                  )}
-                  {item.category === 'child-benefit' && item.metadata?.kinderenLeeftijden?.length > 0 && (
-                    <span className="text-xs text-gray-500">
-                      ({item.metadata.kinderenLeeftijden.length} {item.metadata.kinderenLeeftijden.length === 1 ? 'kind' : 'kinderen'})
-                    </span>
-                  )}
-                  {item.category === 'child-budget' && item.metadata?.aantalKinderen > 0 && (
-                    <span className="text-xs text-gray-500">
-                      ({item.metadata.aantalKinderen} {item.metadata.aantalKinderen === 1 ? 'kind' : 'kinderen'})
-                    </span>
-                  )}
                 </div>
                <div className="text-xs text-gray-600 pl-8">
                       {['childcare', 'child-benefit', 'child-budget'].includes(item.category) ? (
