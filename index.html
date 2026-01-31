@@ -2118,29 +2118,47 @@ const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde, assump
     }
     
     function App() {
-      const [incomeItems, setIncomeItems] = useState([
-        { id: 1, name: 'Salaris', amount: 80000, frequency: 'yearly', growthRate: 2, startYear: 2026, endYear: null, category: 'salary' }
-      ]);
+      // Load from localStorage or use defaults
+      const [incomeItems, setIncomeItems] = useState(() => {
+        const saved = localStorage.getItem('incomeItems');
+        return saved ? JSON.parse(saved) : [
+          { id: 1, name: 'Salaris', amount: 80000, frequency: 'yearly', growthRate: 2, startYear: 2026, endYear: null, category: 'salary' }
+        ];
+      });
       
-      const [expenseItems, setExpenseItems] = useState([
-        { id: 1, name: 'Levensonderhoud', amount: 2500, frequency: 'monthly', startYear: 2026, endYear: null, category: 'other', adjustForInflation: true }
-      ]);
+      const [expenseItems, setExpenseItems] = useState(() => {
+        const saved = localStorage.getItem('expenseItems');
+        return saved ? JSON.parse(saved) : [
+          { id: 1, name: 'Levensonderhoud', amount: 2500, frequency: 'monthly', startYear: 2026, endYear: null, category: 'other', adjustForInflation: true }
+        ];
+      });
       
-      const [targetNetWorth, setTargetNetWorth] = useState(1500000);
-      const [wozWaarde, setWozWaarde] = useState(0);
+      const [targetNetWorth, setTargetNetWorth] = useState(() => {
+        const saved = localStorage.getItem('targetNetWorth');
+        return saved ? JSON.parse(saved) : 1500000;
+      });
+      
+      const [wozWaarde, setWozWaarde] = useState(() => {
+        const saved = localStorage.getItem('wozWaarde');
+        return saved ? JSON.parse(saved) : 0;
+      });
       
       // Assets: Bezittingen (woning, crypto, aandelen, cash)
-      const [assets, setAssets] = useState([
-        // Example: { id: 1, name: 'Woning', value: 450000, type: 'property', growthRate: 2, startYear: 2020 }
-      ]);
+      const [assets, setAssets] = useState(() => {
+        const saved = localStorage.getItem('assets');
+        return saved ? JSON.parse(saved) : [];
+      });
       
       // Liabilities: Schulden (hypotheek, studieschuld, etc.)
-      const [liabilities, setLiabilities] = useState([
-        // Hypotheek wordt automatisch toegevoegd vanuit expenses met category 'housing'
-        // Example: { id: 1, name: 'Studieschuld', amount: 20000, interestRate: 0, type: 'student-loan', startYear: 2018 }
-      ]);
+      const [liabilities, setLiabilities] = useState(() => {
+        const saved = localStorage.getItem('liabilities');
+        return saved ? JSON.parse(saved) : [];
+      });
       
- const [assumptions, setAssumptions] = useState(defaultAssumptions);
+      const [assumptions, setAssumptions] = useState(() => {
+        const saved = localStorage.getItem('assumptions');
+        return saved ? JSON.parse(saved) : defaultAssumptions;
+      });
       
       const [editDialog, setEditDialog] = useState({ isOpen: false, type: null, item: null });
       const [showCategoryDialog, setShowCategoryDialog] = useState(false);
