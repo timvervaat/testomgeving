@@ -2169,7 +2169,36 @@ const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde, assump
       
       const [projections, setProjections] = useState(null);
       
-    useEffect(() => {
+      // Save to localStorage whenever state changes
+      useEffect(() => {
+        localStorage.setItem('incomeItems', JSON.stringify(incomeItems));
+      }, [incomeItems]);
+      
+      useEffect(() => {
+        localStorage.setItem('expenseItems', JSON.stringify(expenseItems));
+      }, [expenseItems]);
+      
+      useEffect(() => {
+        localStorage.setItem('targetNetWorth', JSON.stringify(targetNetWorth));
+      }, [targetNetWorth]);
+      
+      useEffect(() => {
+        localStorage.setItem('wozWaarde', JSON.stringify(wozWaarde));
+      }, [wozWaarde]);
+      
+      useEffect(() => {
+        localStorage.setItem('assets', JSON.stringify(assets));
+      }, [assets]);
+      
+      useEffect(() => {
+        localStorage.setItem('liabilities', JSON.stringify(liabilities));
+      }, [liabilities]);
+      
+      useEffect(() => {
+        localStorage.setItem('assumptions', JSON.stringify(assumptions));
+      }, [assumptions]);
+      
+     useEffect(() => {
         try {
           const currentYear = new Date().getFullYear();
           const endYear = currentYear + 50;
