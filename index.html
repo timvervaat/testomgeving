@@ -443,7 +443,7 @@ const berekenToetsinkomen = (incomes, expenses, year, wozWaarde, assumptions = {
   const totalGrossIncome = partner1GrossIncome + partner2GrossIncome;
   const heeftPartner2 = partner2GrossIncome > 0;
   
-  // Bereken hypotheekrente
+// Bereken hypotheekrente
   let hypotheekrenteAftrek = 0;
   for (const expense of expenses) {
     if (!isActiveInYear(expense, year)) continue;
@@ -455,7 +455,10 @@ const berekenToetsinkomen = (incomes, expenses, year, wozWaarde, assumptions = {
         remainingMonths: expense.remainingMonths,
         mortgageType: expense.mortgageType
       }, yearsActive);
-      hypotheekrenteAftrek += mortgageData.interest;
+      // Alleen annuïtaire hypotheek is aftrekbaar
+      if (expense.mortgageType === 'annuity') {
+        hypotheekrenteAftrek += mortgageData.interest;
+      }
     }
   }
   
