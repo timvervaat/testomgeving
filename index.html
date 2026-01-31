@@ -2404,7 +2404,7 @@ const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde, assump
                 <div className="bg-white rounded-lg shadow p-4">
                   <div className="flex items-center justify-between mb-3">
                     <h2 className="font-semibold flex items-center gap-2">
-                      💎 Bezittingen
+                      💎 Assets
                       <span className="text-xs text-gray-500">({assets.length})</span>
                     </h2>
                     <button onClick={addAsset} className="text-primary hover:text-primary-dark text-xl" title="Voeg bezit toe">+</button>
@@ -2560,13 +2560,13 @@ const calculateToeslagAmount = (item, incomes, expenses, year, wozWaarde, assump
                 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                <KPICard 
-                    icon="🎯"
+                    icon="⏳"
                     label="Jaar tot vermogensdoel"
                     value={projections?.fireYear ? `${projections.yearsToFire} jaar` : 'Niet binnen 50 jaar'}
                     color="primary"
                   />
                 <KPICard 
-                    icon="🪙"
+                    icon="🎯"
                     label="Vermogensdoel"
                     value={formatCurrency(targetNetWorth)}
                     color="secondary"
